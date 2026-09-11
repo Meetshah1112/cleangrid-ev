@@ -8,6 +8,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": { "@cleangrid/shared": "*", "ws": "^8.21.3" },
+  "dependencies": { "@cleangrid/shared": "*", "ws": "^8.21.3", "zod": "^4.6.2" },
   "devDependencies": { "@types/ws": "^8.18.1" }
 }
