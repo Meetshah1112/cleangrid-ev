@@ -18,6 +18,21 @@ export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: true });
 
+  // Several endpoints take no body. A client that still sends a JSON content-type should get the
+  // action, not a parser error.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+    const text = typeof body === 'string' ? body.trim() : '';
+    if (text === '') {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(text));
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  });
+
   app.addHook('onRequest', async (request) => {
     if (request.method === 'OPTIONS') return;
     request.principal = await authenticate(request, ctx);
@@ -38,6 +53,16 @@ export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
           message: 'the request body failed validation',
           details: error.issues.map((issue) => ({ path: issue.path.map(String).join('.'), message: issue.message })),
         },
+      });
+      return;
+    }
+    // Fastify's own errors (bad JSON, unsupported media type) already know their status.
+    const fastifyError = error as { statusCode?: number; code?: string; message?: string };
+    const status = fastifyError.statusCode;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      void reply.code(status).send({
+        ok: false,
+        error: { code: fastifyError.code ?? 'bad_request', message: fastifyError.message ?? 'bad request' },
       });
       return;
     }

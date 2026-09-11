@@ -5,13 +5,14 @@ import type { Charger, Dispatch, FlexEvent, Forecast, Impact, Overview, Plan, Se
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080';
 export const SITE_ID = process.env.NEXT_PUBLIC_SITE_ID ?? 'site-riverside';
 
-const headers: HeadersInit = {
-  'content-type': 'application/json',
+const identity: HeadersInit = {
   'x-dev-role': 'operator',
   'x-dev-user': process.env.NEXT_PUBLIC_OPERATOR_ID ?? 'ops-priya',
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Only claim a JSON body when there is one; an empty body with a JSON content type is an error.
+  const headers = init?.body === undefined ? identity : { ...identity, 'content-type': 'application/json' };
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
   const body = (await response.json().catch(() => ({}))) as { ok?: boolean; data?: T; error?: { message?: string } };
   if (!response.ok || body.ok !== true) {

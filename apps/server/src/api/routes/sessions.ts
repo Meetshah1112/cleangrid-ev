@@ -1,9 +1,20 @@
-import { checkDeadline } from '@cleangrid/engine';
-import { createSessionSchema, round, updateSessionSchema } from '@cleangrid/shared';
+import { checkDeadline, solveGreedy } from '@cleangrid/engine';
+import {
+  CHARGING_MODES,
+  MODE_WEIGHTS,
+  createSessionSchema,
+  createSlotGrid,
+  round,
+  sessionPreviewSchema,
+  slotEndMs,
+  updateSessionSchema,
+  windowHours,
+} from '@cleangrid/shared';
 import type { FastifyInstance } from 'fastify';
 import { AppError, NotFoundError, ValidationError } from '../../errors';
-import { requireSessionAccess } from '../auth';
+import { requireRole, requireSessionAccess } from '../auth';
 import type { ApiContext } from '../context';
+import { baseLoadForGrid } from '../../optimiser/problem';
 import { ok } from '../app';
 
 /** The driver-facing side: declare a need, watch it, change it, stop it. */
@@ -13,8 +24,10 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
    * one that can, rather than accepted and quietly missed later.
    */
   app.post('/sessions', async (request, reply) => {
+    // A session belongs to the driver who opened it, so only a driver can open one.
+    requireRole(request.principal, 'driver');
     const body = createSessionSchema.parse(request.body);
-    const principal = request.principal;
+    const driverId = request.principal.id;
 
     const charger = await ctx.repos.chargers.get(body.chargerId);
     if (!charger) throw new NotFoundError('charger', body.chargerId);
@@ -22,12 +35,11 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
       throw new ValidationError('unknown_connector', `charger ${charger.id} has no connector ${body.connectorId}`);
     }
 
-    const driverId = principal.role === 'driver' ? principal.id : (principal.id ?? null);
     const vehicle = body.vehicleId
       ? await ctx.repos.vehicles.get(body.vehicleId)
       : ((await ctx.repos.vehicles.listByDriver(driverId))[0] ?? null);
     if (body.vehicleId && !vehicle) throw new NotFoundError('vehicle', body.vehicleId);
-    if (vehicle && principal.role === 'driver' && vehicle.driverId !== principal.id) {
+    if (vehicle && vehicle.driverId !== driverId) {
       throw new AppError('forbidden', 'that vehicle belongs to another driver', 403);
     }
 
@@ -65,6 +77,85 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
     return reply.code(201).send(ok(session));
   });
 
+  /**
+   * What each mode would mean for this car, before the driver commits. The estimate runs the real
+   * scheduler for one car on top of the load already planned, so the numbers are the ones the
+   * optimiser would actually produce rather than a rule of thumb.
+   */
+  app.post('/sessions/preview', async (request) => {
+    const body = sessionPreviewSchema.parse(request.body);
+    const site = await ctx.repos.sites.get(body.siteId);
+    if (!site) throw new NotFoundError('site', body.siteId);
+
+    const nowMs = ctx.clock.now();
+    const deadlineMs = Date.parse(body.deadlineAt);
+    const grid = createSlotGrid({
+      nowMs,
+      slotMinutes: ctx.config.SLOT_MINUTES,
+      horizonHours: ctx.config.HORIZON_HOURS,
+    });
+    const signals = await ctx.forecast.signals(site, grid);
+    const check = checkDeadline({
+      startMs: nowMs,
+      deadlineMs,
+      energyKwh: body.energyKwh,
+      maxPowerKw: body.maxPowerKw,
+    });
+
+    const plan = ctx.loop.latestPlan;
+    const alreadyPlannedKw =
+      plan && plan.grid.startMs === grid.startMs && plan.siteLoadKw.length === grid.slots
+        ? plan.siteLoadKw
+        : baseLoadForGrid(site, grid);
+    const availableHours = windowHours(grid, nowMs, deadlineMs);
+
+    const modes = await Promise.all(
+      CHARGING_MODES.map(async (mode) => {
+        const result = await solveGreedy({
+          grid,
+          sessions: [
+            {
+              sessionId: 'preview',
+              energyKwh: body.energyKwh,
+              maxPowerKw: body.maxPowerKw,
+              availableHours,
+              weights: MODE_WEIGHTS[mode],
+            },
+          ],
+          site: {
+            gridConnectionKw: site.gridConnectionKw,
+            baseLoadKw: alreadyPlannedKw,
+            peakWeight: MODE_WEIGHTS[site.defaultMode].peak,
+          },
+          signals: { carbonGPerKwh: signals.carbonGPerKwh, pricePerKwh: signals.pricePerKwh },
+        });
+        const row = result.allocationsKw.preview ?? [];
+        const lastSlot = row.reduce((last, kw, slot) => (kw > 0 ? slot : last), -1);
+        const renewableKwh = row.reduce(
+          (total, kw, slot) => total + kw * (availableHours[slot] ?? 0) * (signals.renewableShare[slot] ?? 0),
+          0,
+        );
+        return {
+          mode,
+          cost: round(result.totals.cost, 3),
+          co2Kg: round(result.totals.co2Kg, 3),
+          energyKwh: round(result.totals.energyKwh, 2),
+          renewableShare: result.totals.energyKwh > 0 ? round(renewableKwh / result.totals.energyKwh, 3) : 0,
+          finishByMs: lastSlot < 0 ? null : slotEndMs(grid, lastSlot),
+          shortfallKwh: result.shortfalls[0]?.shortfallKwh ?? 0,
+        };
+      }),
+    );
+
+    return ok({
+      feasible: check.feasible,
+      earliestDeadlineAt: new Date(check.earliestFinishMs).toISOString(),
+      maxDeliverableKwh: round(check.maxDeliverableKwh, 1),
+      slackHours: round(check.slackHours, 2),
+      modes,
+    });
+  });
+
   app.get('/sessions/:id', async (request) => {
     const { id } = request.params as { id: string };
     const session = await ctx.repos.sessions.get(id);
@@ -88,11 +179,15 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
 
     if (body.deadlineAt !== undefined || body.energyKwh !== undefined) {
       const deadlineMs = body.deadlineAt === undefined ? session.deadlineMs : Date.parse(body.deadlineAt);
-      const energyKwh = body.energyKwh ?? ctx.sessions.remainingKwh(session);
+      // A new total need still only has to cover what has not been delivered yet.
+      const remainingKwh =
+        body.energyKwh === undefined
+          ? ctx.sessions.remainingKwh(session)
+          : Math.max(0, body.energyKwh - session.energyDeliveredKwh);
       const check = checkDeadline({
         startMs: ctx.clock.now(),
         deadlineMs,
-        energyKwh: Math.max(0, energyKwh - (body.energyKwh === undefined ? 0 : session.energyDeliveredKwh)),
+        energyKwh: remainingKwh,
         maxPowerKw: session.maxPowerKw,
       });
       if (!check.feasible) {

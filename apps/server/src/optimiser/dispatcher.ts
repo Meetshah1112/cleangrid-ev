@@ -1,6 +1,7 @@
 import {
   kwToW,
   slotStartMs,
+  type Charger,
   type ChargingPeriod,
   type ChargingSession,
   type Clock,
@@ -13,7 +14,7 @@ import type { ChargingProfile } from '@cleangrid/ocpp';
 import { randomUUID } from 'node:crypto';
 import type { EventBus } from '../events';
 import type { Logger } from '../logger';
-import type { OcppGateway } from '../ocpp/gateway';
+import { SAFETY_PROFILE_ID, type OcppGateway } from '../ocpp/gateway';
 import type { Repositories } from '../repo/types';
 import type { SessionService } from '../sessions/service';
 
@@ -38,6 +39,9 @@ export interface BuildDispatchInput {
   readonly lookaheadPeriods: number;
   readonly lastSentW: ReadonlyMap<string, readonly number[]>;
   readonly hysteresisW: number;
+  /** When the last profile was sent, so one can be refreshed before it expires. */
+  readonly lastSentAtMs?: ReadonlyMap<string, number>;
+  readonly staleAfterMs?: number;
 }
 
 export interface DispatchDecision {
@@ -75,7 +79,13 @@ export function buildDispatch(input: BuildDispatchInput): DispatchDecision {
     });
 
     const previous = input.lastSentW.get(session.id);
+    // A profile carries a duration. If nothing changes for long enough it would expire and the
+    // charger would fall back to its default, so refresh it before that happens.
+    const sentAtMs = input.lastSentAtMs?.get(session.id);
+    const stale =
+      input.staleAfterMs !== undefined && sentAtMs !== undefined && input.grid.nowMs - sentAtMs >= input.staleAfterMs;
     const changed =
+      stale ||
       previous === undefined ||
       previous.length !== limitsW.length ||
       limitsW.some((limitW, index) => Math.abs(limitW - (previous[index] ?? 0)) >= input.hysteresisW);
@@ -131,14 +141,20 @@ export interface DispatchServiceDeps {
 /** Sends profiles, records what happened, and gives up on a charger that will not obey. */
 export class DispatchService {
   private readonly lastSentW = new Map<string, readonly number[]>();
+  private readonly lastSentAtMs = new Map<string, number>();
   private readonly profileIds = new Map<string, number>();
   private readonly rejections = new Map<string, number>();
+  private readonly lastDefaultW = new Map<string, number>();
   private nextProfileId = 1;
 
-  constructor(private readonly deps: DispatchServiceDeps) {}
+  constructor(private readonly deps: DispatchServiceDeps) {
+    // A finished session will never be dispatched again; drop what was remembered about it.
+    this.deps.bus.on('session.ended', ({ session }) => this.forget(session.id));
+  }
 
   forget(sessionId: string): void {
     this.lastSentW.delete(sessionId);
+    this.lastSentAtMs.delete(sessionId);
     this.profileIds.delete(sessionId);
     this.rejections.delete(sessionId);
   }
@@ -156,6 +172,8 @@ export class DispatchService {
       lookaheadPeriods: this.deps.lookaheadPeriods,
       lastSentW: this.lastSentW,
       hysteresisW: this.deps.hysteresisW,
+      lastSentAtMs: this.lastSentAtMs,
+      staleAfterMs: Math.max(1, this.deps.lookaheadPeriods - 1) * grid.slotMinutes * 60_000,
     });
 
     let sent = 0;
@@ -163,7 +181,50 @@ export class DispatchService {
       const ok = await this.send(plan, grid, intent);
       if (ok) sent += 1;
     }
+    await this.reserveForIdleBays(plan, sessions, [...chargers.values()]);
     return sent;
+  }
+
+  /**
+   * Keep the headroom a car could take if it plugs in between solves inside what the connection
+   * can carry. Idle bays share whatever the plan leaves spare; if the plan uses everything, an
+   * arriving car waits the few seconds until the next solve rather than pushing the site over.
+   */
+  private async reserveForIdleBays(
+    plan: PlanRecord,
+    sessions: readonly ChargingSession[],
+    chargers: readonly Charger[],
+  ): Promise<void> {
+    const busy = new Set(sessions.filter((session) => session.status === 'active').map((session) => session.chargerId));
+    const idle = chargers.filter((charger) => charger.online && !busy.has(charger.id));
+    if (idle.length === 0) return;
+
+    const capKw = plan.capKw[0] ?? Number.POSITIVE_INFINITY;
+    const spareKw = Math.max(0, capKw - (plan.siteLoadKw[0] ?? 0));
+    const shareKw = spareKw / idle.length;
+
+    for (const charger of idle) {
+      const allowedKw = Math.min(charger.maxPowerKw, shareKw);
+      // A charger cannot hold a trickle below its minimum current, so round that down to nothing.
+      const limitW = Math.round((allowedKw < charger.minPowerKw ? 0 : allowedKw) * 1000);
+      const previous = this.lastDefaultW.get(charger.id);
+      if (previous !== undefined && Math.abs(limitW - previous) < this.deps.hysteresisW) continue;
+      try {
+        await this.deps.gateway.setChargingProfile(charger.id, {
+          connectorId: 0,
+          csChargingProfiles: {
+            chargingProfileId: SAFETY_PROFILE_ID,
+            stackLevel: 0,
+            chargingProfilePurpose: 'TxDefaultProfile',
+            chargingProfileKind: 'Relative',
+            chargingSchedule: { chargingRateUnit: 'W', chargingSchedulePeriod: [{ startPeriod: 0, limit: limitW }] },
+          },
+        });
+        this.lastDefaultW.set(charger.id, limitW);
+      } catch (error) {
+        this.deps.logger.debug({ err: error, chargerId: charger.id }, 'could not update the idle-bay reserve');
+      }
+    }
   }
 
   private async send(plan: PlanRecord, grid: SlotGrid, intent: DispatchIntent): Promise<boolean> {
@@ -186,6 +247,7 @@ export class DispatchService {
     if (status === 'Accepted') {
       this.rejections.delete(intent.sessionId);
       this.lastSentW.set(intent.sessionId, intent.periods.map((period) => period.limitW));
+      this.lastSentAtMs.set(intent.sessionId, this.deps.clock.now());
       await this.deps.sessions.setLimit(intent.sessionId, intent.limitW / 1000);
     } else {
       await this.handleRefusal(intent, status, error);

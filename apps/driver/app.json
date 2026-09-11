@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "CleanGrid EV",
+    "slug": "cleangrid-driver",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "cleangrid",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0f8f5f"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "backgroundColor": "#0f8f5f" } },
+    "web": { "bundler": "metro" }
+  }
+}

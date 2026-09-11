@@ -71,7 +71,6 @@ export function PlanChart({ plan, nowMs }: PlanChartProps) {
             stroke="var(--red)"
             strokeWidth="1.2"
             strokeDasharray="5 4"
-            transform={`translate(0 0)`}
             style={{ opacity: 0.85 }}
           />
         )}

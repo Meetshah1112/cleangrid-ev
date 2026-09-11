@@ -6,6 +6,7 @@ import { DashboardChannel, WS_PATH_PREFIX } from './api/channel';
 import type { ApiContext } from './api/context';
 import { createClock, loadConfig } from './config';
 import { EventBus } from './events';
+import { LiveForecastProvider } from './forecast/live';
 import { ForecastService, SyntheticForecastProvider } from './forecast/service';
 import { createLogger } from './logger';
 import { OCPP_PATH_PREFIX, OcppGateway } from './ocpp/gateway';
@@ -43,7 +44,8 @@ async function main(): Promise<void> {
   const sessions = new SessionService({ repos, bus, clock, logger });
   const gateway = new OcppGateway({ repos, bus, clock, logger, sessions });
   const forecast = new ForecastService({
-    provider: new SyntheticForecastProvider(),
+    provider: config.FORECAST === 'live' ? new LiveForecastProvider({ logger }) : new SyntheticForecastProvider(),
+    fallback: new SyntheticForecastProvider(),
     clock,
     bus,
     logger,
