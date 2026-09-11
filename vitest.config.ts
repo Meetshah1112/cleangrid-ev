@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/**/src/**/*.ts', 'apps/server/src/**/*.ts', 'apps/simulator/src/**/*.ts'],
-      exclude: ['**/*.test.ts', '**/index.ts'],
+      exclude: ['**/*.test.ts', '**/index.ts', '**/testkit.ts'],
       reporter: ['text', 'html'],
     },
   },
