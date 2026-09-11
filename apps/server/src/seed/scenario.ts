@@ -1,0 +1,107 @@
+import { parseScenario, type Clock, type Scenario } from '@cleangrid/shared';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import type { Logger } from '../logger';
+import type { Repositories } from '../repo/types';
+
+/** Loads the scenario file and fills the repositories with the site it describes. */
+
+export async function loadScenarioFile(path: string): Promise<Scenario> {
+  const raw = await readFile(resolve(path), 'utf8');
+  return parseScenario(JSON.parse(raw));
+}
+
+export async function seedFromScenario(
+  repos: Repositories,
+  scenario: Scenario,
+  clock: Clock,
+  logger?: Logger,
+): Promise<void> {
+  const { site } = scenario;
+  await repos.sites.save({
+    id: site.id,
+    name: site.name,
+    timezone: site.timezone,
+    lat: site.lat,
+    lng: site.lng,
+    regionCode: site.regionCode,
+    gridConnectionKw: site.gridConnectionKw,
+    demandChargePerKwMonth: site.demandChargePerKwMonth,
+    currency: site.currency,
+    defaultMode: site.defaultMode,
+    baseLoadKw: site.baseLoadKw,
+  });
+
+  for (const charger of scenario.chargers) {
+    await repos.chargers.save({
+      id: charger.id,
+      siteId: site.id,
+      ocppIdentity: charger.ocppIdentity,
+      label: charger.label,
+      maxPowerKw: charger.maxPowerKw,
+      minPowerKw: charger.minPowerKw,
+      connectorCount: charger.connectors,
+      online: false,
+      lastSeenMs: null,
+      vendor: charger.vendor ?? null,
+      model: charger.model ?? null,
+      uncontrolled: false,
+    });
+    for (let connectorId = 1; connectorId <= charger.connectors; connectorId += 1) {
+      await repos.connectors.upsert({
+        chargerId: charger.id,
+        connectorId,
+        status: 'Unavailable',
+        errorCode: 'NoError',
+        sessionId: null,
+        updatedMs: clock.now(),
+      });
+    }
+  }
+
+  for (const driver of scenario.drivers) {
+    await repos.profiles.save({
+      id: driver.id,
+      role: 'driver',
+      displayName: driver.displayName,
+      siteId: site.id,
+      idTag: driver.idTag,
+      defaultMode: driver.defaultMode,
+      defaultDwellHours: driver.defaultDwellHours,
+      defaultEnergyKwh: driver.defaultEnergyKwh,
+    });
+  }
+
+  for (const member of scenario.staff) {
+    await repos.profiles.save({
+      id: member.id,
+      role: member.role,
+      displayName: member.displayName,
+      siteId: member.role === 'operator' ? site.id : null,
+      idTag: null,
+      defaultMode: site.defaultMode,
+      defaultDwellHours: 8,
+      defaultEnergyKwh: 20,
+    });
+  }
+
+  for (const vehicle of scenario.vehicles) {
+    await repos.vehicles.save({
+      id: vehicle.id,
+      driverId: vehicle.driverId,
+      label: vehicle.label,
+      batteryKwh: vehicle.batteryKwh,
+      maxChargeKw: vehicle.maxChargeKw,
+    });
+  }
+
+  logger?.info(
+    {
+      site: site.name,
+      chargers: scenario.chargers.length,
+      drivers: scenario.drivers.length,
+      arrivals: scenario.arrivals.length,
+    },
+    'scenario seeded',
+  );
+}

@@ -1,0 +1,84 @@
+import { SimClock, SystemClock, zonedTimeToUtc, type Clock } from '@cleangrid/shared';
+import { z } from 'zod';
+
+/** All runtime configuration in one place, validated once at startup. */
+
+const bool = (fallback: boolean) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? fallback : ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())));
+
+export const configSchema = z.object({
+  PORT: z.coerce.number().int().min(1).max(65_535).default(8080),
+  HOST: z.string().default('0.0.0.0'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  LOG_PRETTY: bool(true),
+  DEV_AUTH: bool(true),
+  REPO: z.enum(['memory', 'supabase']).default('memory'),
+  SCENARIO: z.string().default('./scenarios/day-one.json'),
+  /** Simulated clock start: an ISO instant, "scenario" to use the scenario's own start, or unset for real time. */
+  SIM_START: z.string().default('scenario'),
+  SIM_TIME_SCALE: z.coerce.number().positive().max(10_000).default(1),
+  SCHEDULER: z.enum(['lp', 'greedy']).default('lp'),
+  FORECAST: z.enum(['live', 'synthetic']).default('synthetic'),
+  RESOLVE_INTERVAL_MIN: z.coerce.number().positive().max(120).default(5),
+  RESOLVE_DEBOUNCE_MS: z.coerce.number().int().min(0).max(60_000).default(2_000),
+  LOOKAHEAD_PERIODS: z.coerce.number().int().min(1).max(96).default(3),
+  SLOT_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
+  HORIZON_HOURS: z.coerce.number().positive().max(48).default(24),
+  /** Only re-send a charging profile when the limit moves by at least this much. */
+  DISPATCH_HYSTERESIS_W: z.coerce.number().int().min(0).max(10_000).default(250),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_KEY: z.string().optional(),
+  SUPABASE_JWT_SECRET: z.string().optional(),
+});
+
+export type AppConfig = z.infer<typeof configSchema>;
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const parsed = configSchema.safeParse(env);
+  if (!parsed.success) {
+    const details = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    throw new Error(`Invalid configuration: ${details}`);
+  }
+  const config = parsed.data;
+  if (config.REPO === 'supabase' && !(config.SUPABASE_URL && config.SUPABASE_SERVICE_KEY)) {
+    throw new Error('REPO=supabase needs SUPABASE_URL and SUPABASE_SERVICE_KEY');
+  }
+  if (!config.DEV_AUTH && !config.SUPABASE_JWT_SECRET) {
+    throw new Error('DEV_AUTH=0 needs SUPABASE_JWT_SECRET to verify tokens');
+  }
+  return config;
+}
+
+export interface ClockOptions {
+  readonly simStart: string;
+  readonly timeScale: number;
+  /** Fallback start when SIM_START is "scenario". */
+  readonly scenarioStartMs?: number;
+  readonly timezone?: string;
+}
+
+/**
+ * Real time unless a simulated start or a time scale above 1 is configured.
+ * The whole process shares one clock so plans, meter values and reports agree on "now".
+ */
+export function createClock(options: ClockOptions): Clock {
+  const { simStart, timeScale, scenarioStartMs, timezone = 'UTC' } = options;
+  const wantsSim = timeScale !== 1 || (simStart !== '' && simStart !== 'real');
+  if (!wantsSim) return new SystemClock();
+
+  const startMs = resolveStartMs(simStart, scenarioStartMs, timezone);
+  if (startMs === null) return new SystemClock();
+  return new SimClock({ startMs, scale: timeScale });
+}
+
+function resolveStartMs(simStart: string, scenarioStartMs: number | undefined, timezone: string): number | null {
+  if (simStart === 'scenario') return scenarioStartMs ?? null;
+  if (simStart === 'now') return Date.now();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(simStart)) return zonedTimeToUtc(simStart, timezone);
+  const parsed = Date.parse(simStart);
+  if (Number.isNaN(parsed)) throw new Error(`SIM_START "${simStart}" is not an instant, "scenario", "now" or "real"`);
+  return parsed;
+}
