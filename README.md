@@ -18,13 +18,15 @@ One simulated day at the demo site, measured from charger meter readings:
 
 | | Smart charging | Charging on plug-in |
 |---|---|---|
-| Energy delivered | 383 kWh | 383 kWh |
+| Energy delivered | 382 kWh | 382 kWh |
 | Cost | £56 | £83 |
-| CO2 | 91 kg | 142 kg |
-| Deadlines met | every one | every one |
+| CO2 | 91 kg | 141 kg |
+| Peak site draw | 64 kW | over 90 kW |
+| Deadlines met | 14 of 14 | 14 of 14 |
 
-51 kg of CO2 avoided, a third off the bill, and the site stayed inside its 65 kW connection while
-a dumb site would have drawn over 90 kW at the morning rush.
+50 kg of CO2 avoided and a third off the bill, with the site inside its 65 kW connection all day.
+A dumb site would have drawn over 90 kW during the morning rush. Every figure comes from charger
+meter readings, not from the plan.
 
 ## How it works
 
@@ -67,7 +69,7 @@ time that can be met.
 
 ```bash
 npm install
-npm test                 # 202 tests
+npm test                 # 209 tests
 npm run demo             # one simulated day, end to end, in about 13 minutes
 ```
 

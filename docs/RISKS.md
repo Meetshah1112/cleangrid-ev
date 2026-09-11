@@ -16,6 +16,8 @@ during the build.
 | Unit confusion between kW and kWh, W and Wh | Field names carry units, one conversion module, and the meter parser converts kWh/kW inputs | built |
 | Charging profiles churn every solve | 250 W hysteresis per period; unchanged setpoints are not resent | built |
 | Meter register resets or goes backwards | The reading is rejected with a warning rather than turned into negative energy; reports refuse to guess and mark themselves unverified | built, tested |
+| A car plugs in between solves and pushes the site over its connection | **Hit.** Idle bays now share only the headroom the current plan leaves spare, and plans are held two percent below the connection because no control loop reacts instantly | fixed |
+| Metered demand misreads because readings straddle interval boundaries | **Hit.** Energy is split across the intervals it spans, and an interval is scored one interval later so every charger has reported | fixed |
 | Supabase auth and RLS eat the build | In-memory repositories and dev-header auth by default; the schema and policies are written and ready to apply | built |
 | Serverless kills long-lived OCPP sockets | One long-lived Node process holds the gateway, the API and the loop. Deploy on a VM or a container host, not a function | by design |
 | A dumb-charging baseline would exceed the connection | Stated plainly: the baseline is per session at full power from plug-in, which is what a dumb charger does. It is a counterfactual, not a claim about what the site could physically do | documented |

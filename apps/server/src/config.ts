@@ -29,6 +29,12 @@ export const configSchema = z.object({
   HORIZON_HOURS: z.coerce.number().positive().max(48).default(24),
   /** Only re-send a charging profile when the limit moves by at least this much. */
   DISPATCH_HYSTERESIS_W: z.coerce.number().int().min(0).max(10_000).default(250),
+  /**
+   * Plan to this far below the grid connection. No control loop reacts instantly, so a car that
+   * plugs in between solves draws for a moment before the next plan reaches the chargers. The
+   * margin keeps that moment inside the connection, which is how site load management is done.
+   */
+  CONNECTION_MARGIN_PCT: z.coerce.number().min(0).max(20).default(2),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),

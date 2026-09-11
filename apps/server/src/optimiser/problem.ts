@@ -25,6 +25,8 @@ export interface BuildProblemInput {
   readonly pricePerKwh: readonly number[];
   readonly flexEvents?: readonly FlexEvent[];
   readonly existingPeakKw?: number;
+  /** Fraction of the connection held back as a margin, 0.02 for two percent. */
+  readonly marginFraction?: number;
 }
 
 export interface BuiltProblem {
@@ -46,15 +48,24 @@ export function baseLoadForGrid(site: Site, grid: SlotGrid): number[] {
   });
 }
 
-/** Per-slot ceiling on total site draw: the grid connection, tightened by accepted flex events. */
-export function capsForGrid(site: Site, grid: SlotGrid, flexEvents: readonly FlexEvent[] = []): number[] {
+/**
+ * Per-slot ceiling on total site draw: the grid connection, tightened by accepted flex events,
+ * and held a little below both so the control loop's response time cannot breach them.
+ */
+export function capsForGrid(
+  site: Site,
+  grid: SlotGrid,
+  flexEvents: readonly FlexEvent[] = [],
+  marginFraction = 0,
+): number[] {
   const honoured = flexEvents.filter((event) => event.status === 'accepted' || event.status === 'active');
+  const keep = 1 - marginFraction;
   return Array.from({ length: grid.slots }, (_, slot) => {
     const startMs = slotStartMs(grid, slot);
     const endMs = slotEndMs(grid, slot);
     return honoured.reduce(
-      (cap, event) => (event.startsMs < endMs && event.endsMs > startMs ? Math.min(cap, event.capKw) : cap),
-      site.gridConnectionKw,
+      (cap, event) => (event.startsMs < endMs && event.endsMs > startMs ? Math.min(cap, event.capKw * keep) : cap),
+      site.gridConnectionKw * keep,
     );
   });
 }
@@ -110,9 +121,9 @@ export function buildProblem(input: BuildProblemInput): BuiltProblem {
       grid,
       sessions: needs,
       site: {
-        gridConnectionKw: site.gridConnectionKw,
+        gridConnectionKw: site.gridConnectionKw * (1 - (input.marginFraction ?? 0)),
         baseLoadKw,
-        capKw: capsForGrid(site, grid, input.flexEvents ?? []),
+        capKw: capsForGrid(site, grid, input.flexEvents ?? [], input.marginFraction ?? 0),
         ...(input.existingPeakKw === undefined ? {} : { existingPeakKw: input.existingPeakKw }),
         peakWeight: MODE_WEIGHTS[site.defaultMode].peak,
       },

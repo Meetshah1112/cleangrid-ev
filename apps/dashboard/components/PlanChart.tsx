@@ -124,7 +124,7 @@ export function PlanChart({ plan, nowMs }: PlanChartProps) {
           <i className="swatch" style={{ background: 'rgb(90 169 247 / 0.35)' }} /> building load
         </span>
         <span>
-          <i className="swatch" style={{ background: 'var(--red)' }} /> grid connection limit
+          <i className="swatch" style={{ background: 'var(--red)' }} /> planning limit, held below the connection
         </span>
         <span>
           <i className="swatch" style={{ background: `linear-gradient(90deg, ${carbonColor(120)}, ${carbonColor(700)})` }} />{' '}

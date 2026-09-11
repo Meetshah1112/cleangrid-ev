@@ -122,6 +122,12 @@ against the current forward-looking forecast, which clamps everything before "no
 and made avoided CO2 come out at zero. Reports now read the stored grid signals for the session's
 own window, falling back to the provider for gaps.
 
+**Plans hold a margin below the connection.** Even with an instant re-solve, a car that plugs in
+between solves draws power for a moment before the new plan reaches the chargers, and a metered
+interval that contains that moment reads high. Rather than hide it, the optimiser plans against
+98% of the connection, which is how site load management is normally done, and the idle bays share
+only the headroom the current plan leaves spare.
+
 **The dashboard is dark, not light.** The plan said a light control room. Energy operations
 screens are near-universally dark and the demo runs on a projector, so it was built dark with one
 semantic carbon scale reused by the chart, the ribbon, the tiles and the table.

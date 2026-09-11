@@ -138,6 +138,7 @@ export class OptimiserLoop {
       pricePerKwh: signals.pricePerKwh,
       flexEvents,
       existingPeakKw: this.deps.demand.peakKw,
+      marginFraction: config.CONNECTION_MARGIN_PCT / 100,
     });
 
     const result = await this.deps.scheduler.solve(built.problem);

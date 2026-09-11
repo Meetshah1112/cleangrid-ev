@@ -85,6 +85,11 @@ describe('baseLoadForGrid', () => {
 });
 
 describe('capsForGrid', () => {
+  it('holds a margin below the connection when asked', () => {
+    const caps = capsForGrid(site, grid, [], 0.02);
+    expect(caps[0]).toBeCloseTo(63.7, 6);
+  });
+
   it('is the grid connection until a flex event tightens it', () => {
     const flex: FlexEvent = {
       id: 'f1',

@@ -8,8 +8,13 @@ import type { EventBus } from '../events';
  * moments, so a stale high reading can be added to a fresh one. This integrates the energy each
  * session drew inside each metering interval instead, and reports the highest completed interval.
  */
+interface LastReading {
+  readonly tsMs: number;
+  readonly deliveredKwh: number;
+}
+
 export class DemandMeter {
-  private readonly deliveredKwh = new Map<string, number>();
+  private readonly lastReading = new Map<string, LastReading>();
   private readonly bucketsKwh = new Map<number, number>();
   private peakKwSeen = 0;
   private unsubscribe: (() => void)[] = [];
@@ -55,22 +60,48 @@ export class DemandMeter {
     return this.deps.site.baseLoadKw[hour] ?? 0;
   }
 
+  /**
+   * Energy between two readings is spread across the metering intervals it actually spans. A
+   * reading taken just after a boundary carries energy drawn before it, and crediting all of it
+   * to the later interval would invent a peak that never happened.
+   */
   private record(sessionId: string, cumulativeKwh: number, tsMs: number): void {
-    const previous = this.deliveredKwh.get(sessionId) ?? 0;
-    const deltaKwh = cumulativeKwh - previous;
-    this.deliveredKwh.set(sessionId, cumulativeKwh);
+    const previous = this.lastReading.get(sessionId);
+    this.lastReading.set(sessionId, { tsMs, deliveredKwh: cumulativeKwh });
+    if (!previous) return;
+
+    const deltaKwh = cumulativeKwh - previous.deliveredKwh;
     if (deltaKwh <= 0) return;
-    const bucket = floorToStep(tsMs, this.slotMinutes);
-    this.bucketsKwh.set(bucket, (this.bucketsKwh.get(bucket) ?? 0) + deltaKwh);
+
+    const stepMs = this.slotMinutes * MS_PER_MINUTE;
+    const fromMs = previous.tsMs;
+    const spanMs = tsMs - fromMs;
+    if (spanMs <= 0) {
+      this.addToBucket(floorToStep(tsMs, this.slotMinutes), deltaKwh);
+    } else {
+      for (let bucket = floorToStep(fromMs, this.slotMinutes); bucket < tsMs; bucket += stepMs) {
+        const overlapMs = Math.min(tsMs, bucket + stepMs) - Math.max(fromMs, bucket);
+        if (overlapMs > 0) this.addToBucket(bucket, deltaKwh * (overlapMs / spanMs));
+      }
+    }
     this.closeFinishedBuckets();
   }
 
-  /** A bucket is only meaningful once its interval has passed. */
+  private addToBucket(bucket: number, kwh: number): void {
+    this.bucketsKwh.set(bucket, (this.bucketsKwh.get(bucket) ?? 0) + kwh);
+  }
+
+  /**
+   * A bucket is scored once its interval has passed, plus one more interval of grace: chargers
+   * report at their own pace, so closing the moment the clock ticks over would score an interval
+   * before every car had reported for it.
+   */
   private closeFinishedBuckets(): void {
-    const currentBucket = floorToStep(this.deps.clock.now(), this.slotMinutes);
+    const stepMs = this.slotMinutes * MS_PER_MINUTE;
+    const settledBefore = floorToStep(this.deps.clock.now(), this.slotMinutes) - stepMs;
     const intervalHours = this.slotMinutes / 60;
     for (const [bucket, chargingKwh] of this.bucketsKwh) {
-      if (bucket >= currentBucket) continue;
+      if (bucket >= settledBefore) continue;
       const drawKw = chargingKwh / intervalHours + this.baseLoadKwAt(bucket + (this.slotMinutes * MS_PER_MINUTE) / 2);
       this.peakKwSeen = Math.max(this.peakKwSeen, drawKw);
       this.bucketsKwh.delete(bucket);

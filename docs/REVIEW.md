@@ -26,6 +26,9 @@ dumb-charger baseline, and one long-lived Node process holding the API, the gate
 | A car drew full power between StartTransaction and its first charging profile; seven morning arrivals took the site to 78 kW on a 65 kW connection | high | fixed: safety default profile per charger, and the re-solve debounce is capped in simulated time |
 | Impact reports scored a finished session against the forward forecast, which clamps everything before now to one value, so avoided CO2 came out at zero | high | fixed: reports read stored grid signals for the session's own window |
 | Peak demand was computed by summing each session's last reported power, which adds readings taken at different moments and overstated the peak by about 10 kW | medium | fixed: `DemandMeter` integrates energy per 15-minute interval, which is how a demand charge is billed |
+| The demand meter credited energy drawn across an interval boundary entirely to the later interval, and scored an interval the instant it ended, before every charger had reported for it | medium | fixed: energy is split across the intervals it spans, and an interval is scored one interval later |
+| Charging profiles carry a duration; an unchanged plan let one expire, dropping the car back to its default limit and over-delivering | medium | fixed: a profile is refreshed before it expires |
+| Plans target a small margin below the grid connection | — | by design: no control loop reacts instantly, and a car that plugs in between solves draws for a moment before the next plan reaches the chargers. `CONNECTION_MARGIN_PCT` defaults to 2 |
 | `POST /sessions` recorded the caller as the driver whoever they were, so an operator could open a session that looked like a driver's | medium | fixed: the endpoint is driver-only |
 | An empty body with a JSON content type produced a 500 | low | fixed: empty bodies parse as `{}`, and Fastify's own 4xx errors keep their status |
 | The dispatcher remembered setpoints for sessions that had ended | low | fixed: it forgets on `session.ended` |
@@ -59,7 +62,7 @@ shaping inline that will want extracting once there is more than one site.
 
 ## 5. Tests
 
-202 tests. The engine is the best covered: one behavioural contract runs against both the greedy
+209 tests. The engine is the best covered: one behavioural contract runs against both the greedy
 and the LP scheduler, so the two can never drift apart, and it includes the cases where scheduling
 should fail cleanly. The OCPP gateway is tested over a real WebSocket, boot to stop. The forecast
 providers are tested with a fake fetch, including each source failing independently.
