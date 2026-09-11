@@ -1,0 +1,31 @@
+{
+  "name": "cleangrid-ev",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Renewable-aware EV charging scheduler: OCPP gateway, LP optimiser, driver and operator surfaces",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:server": "npm run dev -w apps/server",
+    "dev:sim": "npm run dev -w apps/simulator",
+    "dev:dashboard": "npm run dev -w apps/dashboard",
+    "demo": "node scripts/demo.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@vitest/coverage-v8": "^5.0.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
