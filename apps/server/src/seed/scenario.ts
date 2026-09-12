@@ -6,6 +6,27 @@ import type { Repositories } from '../repo/types';
 
 /** Loads the scenario file and fills the repositories with the site it describes. */
 
+/**
+ * The operator console watches a network of sites, not one car park, and the people in the scenario
+ * files each run a single site. This is that network role: an operator with no site of their own,
+ * which `requireSite` reads as access to all of them. Seeded once, outside any scenario, because it
+ * belongs to none of them.
+ */
+export const NETWORK_OPERATOR_ID = 'ops-network';
+
+export async function seedNetworkOperator(repos: Repositories): Promise<void> {
+  await repos.profiles.save({
+    id: NETWORK_OPERATOR_ID,
+    role: 'operator',
+    displayName: 'Network Operations',
+    siteId: null,
+    idTag: null,
+    defaultMode: 'balanced',
+    defaultDwellHours: 8,
+    defaultEnergyKwh: 20,
+  });
+}
+
 export async function loadScenarioFile(path: string): Promise<Scenario> {
   const raw = await readFile(resolve(path.trim()), 'utf8');
   return parseScenario(JSON.parse(raw));

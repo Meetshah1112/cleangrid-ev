@@ -17,7 +17,7 @@ import { createScheduler } from './optimiser/scheduler';
 import { createMemoryRepositories } from './repo/memory';
 import { createSupabaseRepositories } from './repo/supabase';
 import { ReportService } from './reports/service';
-import { loadScenarioFiles, seedFromScenario } from './seed/scenario';
+import { loadScenarioFiles, seedFromScenario, seedNetworkOperator } from './seed/scenario';
 import { SessionService } from './sessions/service';
 
 const EMPTY_MIRROR = {
@@ -63,6 +63,7 @@ async function main(): Promise<void> {
 
   const bus = new EventBus(logger);
   for (const scenario of scenarios) await seedFromScenario(repos, scenario, clock, logger);
+  await seedNetworkOperator(repos);
   // Get the topology into Postgres before any session can reference it.
   if (store) await store.flush();
 

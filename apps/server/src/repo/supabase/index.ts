@@ -27,6 +27,8 @@ import {
   reportRow,
   rowToCharger,
   rowToProfile,
+  rowToReport,
+  rowToSession,
   rowToSite,
   rowToVehicle,
   sessionRow,
@@ -67,7 +69,18 @@ export interface HydrationSummary {
   readonly transactionIdsThrough: number;
   /** Sessions left open by a previous process, closed because their sockets did not survive it. */
   readonly orphansClosed: number;
+  /** Finished sessions and reports read back, so impact and driver history survive a restart. */
+  readonly sessions: number;
+  readonly reports: number;
 }
+
+/**
+ * How much history to read back on boot. The impact endpoint reports over thirty days and a driver
+ * sees their recent sessions, so that is the window worth holding; the cap keeps a long-lived
+ * database from being loaded into memory whole.
+ */
+const HISTORY_DAYS = 30;
+const HISTORY_LIMIT = 2_000;
 
 export interface SupabaseRepositories {
   readonly repos: Repositories;
@@ -234,6 +247,31 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
       .select('id');
     if (orphans.error) options.logger.warn({ error: orphans.error.message }, 'could not close orphaned sessions');
 
+    // Read the recent record back. Without this the impact page and a driver's history reset to
+    // zero on every restart: the rows are in Postgres, but nothing in the process can see them.
+    const since = new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60_000).toISOString();
+    const stored = await client
+      .from('sessions')
+      .select('*')
+      .gte('plugged_in_at', since)
+      .order('plugged_in_at', { ascending: false })
+      .limit(HISTORY_LIMIT);
+    if (stored.error) options.logger.warn({ error: stored.error.message }, 'could not read session history');
+    const rows = stored.data ?? [];
+    for (const row of rows) await memory.sessions.save(rowToSession(row as Record<string, unknown>));
+
+    let reports = 0;
+    for (let start = 0; start < rows.length; start += 200) {
+      const ids = rows.slice(start, start + 200).map((row) => String(row.id));
+      const page = await client.from('session_reports').select('*').in('session_id', ids);
+      if (page.error) {
+        options.logger.warn({ error: page.error.message }, 'could not read session reports');
+        break;
+      }
+      for (const row of page.data ?? []) await memory.reports.save(rowToReport(row as Record<string, unknown>));
+      reports += page.data?.length ?? 0;
+    }
+
     return {
       sites,
       profiles,
@@ -241,6 +279,8 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
       chargers,
       transactionIdsThrough,
       orphansClosed: orphans.data?.length ?? 0,
+      sessions: rows.length,
+      reports,
     };
   }
 

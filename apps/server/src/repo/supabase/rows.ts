@@ -197,6 +197,25 @@ export const rowToSession = (row: Row): ChargingSession => ({
   updatedMs: msOf((row.updated_at as string | null) ?? null) ?? 0,
 });
 
+export const rowToReport = (row: Row): SessionReport => ({
+  sessionId: String(row.session_id),
+  energyKwh: num(row.energy_kwh),
+  cost: num(row.cost),
+  co2Kg: num(row.co2_kg),
+  renewableShare: num(row.renewable_share),
+  avgCarbonGPerKwh: num(row.avg_carbon_g_per_kwh),
+  baselineCost: num(row.baseline_cost),
+  baselineCo2Kg: num(row.baseline_co2_kg),
+  avoidedCo2Kg: num(row.avoided_co2_kg),
+  costSaved: num(row.cost_saved),
+  greenScore: num(row.green_score),
+  windowMinCarbonGPerKwh: num(row.window_min_carbon_g_per_kwh),
+  windowMaxCarbonGPerKwh: num(row.window_max_carbon_g_per_kwh),
+  verified: Boolean(row.verified),
+  carbonBasis: row.carbon_basis === 'actual' ? 'actual' : 'forecast',
+  computedMs: msOf(row.computed_at as string) ?? 0,
+});
+
 export const meterRow = (reading: MeterReading): Row => ({
   session_id: reading.sessionId,
   recorded_at: iso(reading.tsMs),

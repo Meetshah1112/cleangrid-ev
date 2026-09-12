@@ -10,9 +10,24 @@
       "resizeMode": "contain",
       "backgroundColor": "#0f8f5f"
     },
-    "assetBundlePatterns": ["**/*"],
-    "ios": { "supportsTablet": true },
-    "android": { "adaptiveIcon": { "backgroundColor": "#0f8f5f" } },
-    "web": { "bundler": "metro" }
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.cleangrid.driver"
+    },
+    "android": {
+      "package": "dev.cleangrid.driver",
+      "adaptiveIcon": {
+        "backgroundColor": "#123528"
+      },
+      "permissions": [
+        "INTERNET"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    }
   }
 }

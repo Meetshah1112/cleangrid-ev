@@ -16,9 +16,14 @@ import type {
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080';
 
+/**
+ * The console watches a network of sites, so it signs in as the network operator rather than as any
+ * one site's operator. A single-site operator is refused at every other site, which is correct for
+ * them and wrong for this screen.
+ */
 const operator: HeadersInit = {
   'x-dev-role': 'operator',
-  'x-dev-user': process.env.NEXT_PUBLIC_OPERATOR_ID ?? 'ops-priya',
+  'x-dev-user': process.env.NEXT_PUBLIC_OPERATOR_ID ?? 'ops-network',
 };
 
 /** The grid operator is a different person with a different view; the API treats them as one. */
@@ -39,6 +44,7 @@ async function request<T>(path: string, init?: RequestInit, as: HeadersInit = op
 }
 
 export const api = {
+  me: () => request<{ id: string; role: string; displayName: string; siteId: string | null }>('/me'),
   sites: () => request<Site[]>('/sites'),
   clock: () => request<{ nowMs: number; scale: number }>('/clock'),
   overview: (siteId: string) => request<Overview>(`/sites/${siteId}/overview`),

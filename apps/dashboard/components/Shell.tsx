@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { api } from '../lib/api';
 import { clockTime } from '../lib/format';
 import type { Site } from '../lib/types';
+
+interface Who {
+  readonly displayName: string;
+  readonly siteId: string | null;
+}
 
 /** The console frame: who you are, which site you are looking at, and what time it is there. */
 
@@ -29,7 +35,16 @@ interface ShellProps {
 
 export function Shell({ page, sites, site, onSelectSite, nowMs, timeScale, connected, children }: ShellProps) {
   const [open, setOpen] = useState(false);
+  const [who, setWho] = useState<Who | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
+
+  // Show who the console is actually signed in as, rather than a name baked into the markup.
+  useEffect(() => {
+    void api
+      .me()
+      .then((me) => setWho({ displayName: me.displayName, siteId: me.siteId }))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const close = (event: MouseEvent): void => {
@@ -57,9 +72,9 @@ export function Shell({ page, sites, site, onSelectSite, nowMs, timeScale, conne
           ))}
         </nav>
         <div className="who">
-          Priya Raman
+          {who?.displayName ?? 'Signing in…'}
           <br />
-          Network operator
+          {who === null ? '' : who.siteId === null ? 'Network operator' : `Operator · ${who.siteId}`}
         </div>
       </aside>
 
