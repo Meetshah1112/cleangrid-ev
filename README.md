@@ -43,8 +43,26 @@ timing: the same kWh bought in cleaner, cheaper hours, which is the per-kWh rows
 a charger with no plan cannot know what a driver actually asked for, so it fills the battery — 52
 kWh more than anyone requested. Both are real, and conflating them would overstate the case.
 
-Reproduce it with `node scripts/compare.mjs --scenario ./scenarios/gandhinagar-secretariat.json`.
+Reproduce it with `npm run compare -- --scenario ./scenarios/gandhinagar-secretariat.json`.
 Every figure comes from charger meter readings, not from the plan.
+
+### The decision underneath it
+
+`npm run shift` takes one van at the Vadodara depot and asks it three questions in a row. Gujarat
+is the place where the two a driver might ask genuinely disagree: its nights are the cheapest hours
+under the time-of-day tariff and also the dirtiest, running on coal, while its middays are the
+cleanest and cost more.
+
+| Same car, same 34 kWh | Lands at | Costs | Renewable |
+|---|---|---|---|
+| Greenest, must leave in 10h | 629 gCO2/kWh | ₹4.41/kWh | 21% |
+| Greenest, given 6 hours more | **445** gCO2/kWh | ₹6.05/kWh | **46%** |
+| Cheapest, same wider window | 641 gCO2/kWh | **₹4.25**/kWh | 19% |
+
+Six more hours of slack, with nothing else changed, moves the charging into daylight and takes 29%
+off its carbon. Asked for the cheapest hours instead, the same car over the same window stays on
+the overnight tariff and emits 31% more. All three finish before the driver leaves — that is the
+constraint, not the goal. There is no single right plan here, which is why the driver is asked.
 
 ## How it works
 

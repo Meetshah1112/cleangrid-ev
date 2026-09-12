@@ -16,7 +16,9 @@
     "dev:server": "npm run dev -w apps/server",
     "dev:sim": "npm run dev -w apps/simulator",
     "dev:dashboard": "npm run dev -w apps/dashboard",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "compare": "node scripts/compare.mjs",
+    "shift": "node scripts/shift.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",

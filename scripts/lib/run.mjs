@@ -41,8 +41,14 @@ export async function waitForHealth(api, timeoutMs = 40_000) {
   throw new Error(`server at ${api} did not become healthy`);
 }
 
-export async function getJson(api, path, role = 'operator') {
-  const response = await fetch(`${api}${path}`, { headers: { 'x-dev-role': role, 'x-dev-user': 'ops-priya' } });
+/**
+ * `headers` overrides who the call is made as. Some endpoints answer differently for a driver than
+ * for an operator -- a driver's own session carries its plan, which is the whole point of asking.
+ */
+export async function getJson(api, path, role = 'operator', headers = {}) {
+  const response = await fetch(`${api}${path}`, {
+    headers: { 'x-dev-role': role, 'x-dev-user': 'ops-priya', ...headers },
+  });
   if (!response.ok) throw new Error(`GET ${path} failed: HTTP ${response.status}`);
   return (await response.json()).data;
 }
