@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Console } from '../../components/Console';
+import { NetworkMap } from '../../components/NetworkMap';
 import { RampPlan, type Ramp } from '../../components/RampPlan';
 import { api, gridApi } from '../../lib/api';
 import { clockTime, kw } from '../../lib/format';
@@ -17,7 +18,7 @@ const REDUCTIONS = [20, 40, 60];
 export default function GridPage() {
   return (
     <Console page="grid">
-      {({ site, live }) => (
+      {({ site, live, selectSite }) => (
         <GridBody
           siteId={site?.id ?? null}
           siteName={site?.name ?? ''}
@@ -28,6 +29,7 @@ export default function GridPage() {
           atRisk={live.sessions.filter((session) => session.status === 'active' && session.deadlineRisk).length}
           activeSessions={live.sessions.filter((session) => session.status === 'active').length}
           onChanged={live.refresh}
+          onSelectSite={selectSite}
         />
       )}
     </Console>
@@ -44,6 +46,7 @@ function GridBody({
   atRisk,
   activeSessions,
   onChanged,
+  onSelectSite,
 }: {
   readonly siteId: string | null;
   readonly siteName: string;
@@ -54,6 +57,7 @@ function GridBody({
   readonly atRisk: number;
   readonly activeSessions: number;
   readonly onChanged: () => void;
+  readonly onSelectSite: (siteId: string) => void;
 }) {
   const [network, setNetwork] = useState<GridSite[]>([]);
   const [reduction, setReduction] = useState(40);
@@ -158,39 +162,47 @@ function GridBody({
         </div>
       )}
 
-      <div className="grid kpis" style={{ marginTop: 14 }}>
-        <div className="card kpi">
-          <div className="label">Available to shed</div>
-          <div className="value">
+      <div className="rail" style={{ marginTop: 14 }}>
+        <div className="rail-cell">
+          <div className="rail-label">Available to shed</div>
+          <div className="rail-value">
             {kw(here?.flexibleKw ?? 0)}
             <small>kW</small>
           </div>
-          <div className="sub">across {activeSessions} sessions</div>
+          <div className="rail-sub">across {activeSessions} sessions</div>
         </div>
-        <div className="card kpi">
-          <div className="label">Deadline risk</div>
-          <div className="value" style={{ color: atRisk > 0 ? 'var(--red)' : undefined }}>
+        <div className="rail-cell">
+          <div className="rail-label">Deadline risk</div>
+          <div className="rail-value" style={{ color: atRisk > 0 ? 'var(--red)' : undefined }}>
             {atRisk}
           </div>
-          <div className="sub">drivers affected</div>
+          <div className="rail-sub">drivers affected</div>
         </div>
-        <div className="card kpi">
-          <div className="label">Drawing now</div>
-          <div className="value">
+        <div className="rail-cell">
+          <div className="rail-label">Drawing now</div>
+          <div className="rail-value">
             {kw(here?.currentDrawKw ?? 0)}
             <small>kW</small>
           </div>
-          <div className="sub">of {kw(connectionKw, 0)} kW connection</div>
+          <div className="rail-sub">of {kw(connectionKw, 0)} kW connection</div>
         </div>
-        <div className="card kpi">
-          <div className="label">Would hold below</div>
-          <div className="value">
+        <div className="rail-cell">
+          <div className="rail-label">Would hold below</div>
+          <div className="rail-value">
             {kw(capKw, 0)}
             <small>kW</small>
           </div>
-          <div className="sub">{reduction}% below the {kw(reduceFromKw, 0)} kW drawn now</div>
+          <div className="rail-sub">{reduction}% below the {kw(reduceFromKw, 0)} kW drawn now</div>
         </div>
       </div>
+
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-head">
+          <h2>Sites under this operator</h2>
+          <span className="note">dot size is how much of its connection each site is using</span>
+        </div>
+        <NetworkMap sites={network} selectedId={siteId} nowMs={nowMs} onSelect={onSelectSite} />
+      </section>
 
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-head">

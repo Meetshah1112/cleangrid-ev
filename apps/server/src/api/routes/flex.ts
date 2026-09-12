@@ -25,6 +25,11 @@ export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext):
           return {
             siteId: site.id,
             name: site.name,
+            // Where the site physically is, so a network view can place it rather than list it.
+            lat: site.lat,
+            lng: site.lng,
+            country: site.country,
+            timezone: site.timezone,
             gridConnectionKw: site.gridConnectionKw,
             currentDrawKw: round(baseKw + chargingKw, 2),
             chargingKw: round(chargingKw, 2),

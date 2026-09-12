@@ -171,6 +171,10 @@ export interface Demand {
 export interface GridSite {
   siteId: string;
   name: string;
+  lat: number;
+  lng: number;
+  country: string;
+  timezone: string;
   gridConnectionKw: number;
   currentDrawKw: number;
   chargingKw: number;

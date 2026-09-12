@@ -105,7 +105,8 @@ export function ForecastChart({ forecast, timezone }: { readonly forecast: Forec
           <i className="swatch" style={{ background: 'var(--amber)' }} /> import price
         </span>
         <span>
-          sources: {forecast.sources.carbon}, {forecast.sources.price}, {forecast.sources.renewable}
+          each line scaled to its own range · sources: {forecast.sources.carbon}, {forecast.sources.price},{' '}
+          {forecast.sources.renewable}
         </span>
       </div>
     </div>

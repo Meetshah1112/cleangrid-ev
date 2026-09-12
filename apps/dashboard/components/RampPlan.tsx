@@ -74,7 +74,7 @@ export function RampPlan({ ramp, timezone, live }: { readonly ramp: Ramp; readon
         <text x={PAD_X} y={y(ramp.connectionKw) - 6} className="ramp-axis">
           {Math.round(ramp.connectionKw)} kW connection
         </text>
-        <text x={WIDTH - PAD_X} y={held - 8} className="ramp-axis is-end">
+        <text x={(x(ramp.startsMs) + x(ramp.endsMs)) / 2} y={held - 10} className="ramp-axis is-mid">
           held at {Math.round(ramp.capKw)} kW
         </text>
       </svg>

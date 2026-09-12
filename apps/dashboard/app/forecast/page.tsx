@@ -38,14 +38,14 @@ export default function ForecastPage() {
                   <h2>Energy weather</h2>
                   <span className="note">renewable share ahead</span>
                 </div>
-                <div className="grid kpis">
+                <div className="weather">
                   {slots.map((index) => {
                     const share = forecast?.renewableShare[index];
                     const carbon = forecast?.carbonGPerKwh[index];
                     const price = forecast?.pricePerKwh[index];
                     if (share === undefined || carbon === undefined) return null;
                     return (
-                      <div key={index} className="card kpi" style={{ boxShadow: 'none' }}>
+                      <div key={index} className="weather-cell">
                         <div className="label">{clockTime((forecast?.startMs ?? 0) + index * stepMs, tz)}</div>
                         <div className="value" style={{ fontSize: 22, color: carbonColor(carbon) }}>
                           {percent(share)}

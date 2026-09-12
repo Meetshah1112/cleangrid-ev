@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Console } from '../../components/Console';
 import { api } from '../../lib/api';
-import { clockTime, kw, money, percent } from '../../lib/format';
+import { clockTime, dayLabel, kw, money, percent } from '../../lib/format';
 import type { Impact, Session } from '../../lib/types';
 
 /** Verified impact: what the schedule actually achieved, against charging on plug-in. */
@@ -53,32 +53,32 @@ function ImpactBody({
         moment each car plugged in.
       </p>
 
-      <div className="grid kpis">
-        <div className="card kpi">
-          <div className="label">Energy delivered</div>
-          <div className="value">
+      <div className="rail">
+        <div className="rail-cell">
+          <div className="rail-label">Energy delivered</div>
+          <div className="rail-value">
             {impact ? impact.energyKwh.toFixed(0) : '--'}
             <small>kWh</small>
           </div>
-          <div className="sub">{impact ? `${impact.sessions} sessions` : ''}</div>
+          <div className="rail-sub">{impact ? `${impact.sessions} sessions` : ''}</div>
         </div>
-        <div className="card kpi">
-          <div className="label">CO2 avoided</div>
-          <div className="value" style={{ color: 'var(--green)' }}>
+        <div className="rail-cell">
+          <div className="rail-label">CO2 avoided</div>
+          <div className="rail-value" style={{ color: 'var(--green)' }}>
             {impact ? impact.avoidedCo2Kg.toFixed(1) : '--'}
             <small>kg</small>
           </div>
-          <div className="sub">{impact ? `${cut}% below the baseline` : ''}</div>
+          <div className="rail-sub">{impact ? `${cut}% below the baseline` : ''}</div>
         </div>
-        <div className="card kpi">
-          <div className="label">Money saved</div>
-          <div className="value">{impact ? money(impact.costSaved, currency) : '--'}</div>
-          <div className="sub">{impact ? `spent ${money(impact.cost, currency)}` : ''}</div>
+        <div className="rail-cell">
+          <div className="rail-label">Money saved</div>
+          <div className="rail-value">{impact ? money(impact.costSaved, currency) : '--'}</div>
+          <div className="rail-sub">{impact ? `spent ${money(impact.cost, currency)}` : ''}</div>
         </div>
-        <div className="card kpi">
-          <div className="label">Deadlines kept</div>
-          <div className="value">{impact && impact.sessions > 0 ? '100%' : '--'}</div>
-          <div className="sub">{impact ? `${impact.verifiedSessions} of ${impact.sessions} meter-verified` : ''}</div>
+        <div className="rail-cell">
+          <div className="rail-label">Deadlines kept</div>
+          <div className="rail-value">{impact && impact.sessions > 0 ? '100%' : '--'}</div>
+          <div className="rail-sub">{impact ? `${impact.verifiedSessions} of ${impact.sessions} meter-verified` : ''}</div>
         </div>
       </div>
 
@@ -88,17 +88,25 @@ function ImpactBody({
             <h2>Measured emissions by charging strategy</h2>
             <span className="chip">✓ meter-verified</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, padding: '16px 4px 8px', minHeight: 180 }}>
+          <div className="compare">
             <Column
               label="Charge immediately"
               value={impact?.baselineCo2Kg ?? 0}
               max={impact?.baselineCo2Kg ?? 1}
               colour="#c9ccc9"
             />
+            {/* The gap between the two columns is the whole claim, so it is drawn rather than
+                left for the reader to subtract. */}
+            <div
+              className="compare-delta"
+              style={{ height: `${Math.max(8, ((impact?.avoidedCo2Kg ?? 0) / Math.max(0.01, impact?.baselineCo2Kg ?? 1)) * 150)}px` }}
+            >
+              <span>-{(impact?.avoidedCo2Kg ?? 0).toFixed(1)} kg</span>
+            </div>
             <Column label="CleanGrid plan" value={impact?.co2Kg ?? 0} max={impact?.baselineCo2Kg ?? 1} colour="var(--green)" />
-            <div style={{ paddingBottom: 24 }}>
-              <div style={{ fontSize: 20, fontWeight: 650, color: 'var(--green)' }}>{cut}% less carbon</div>
-              <div className="note">Same fleet energy. Same driver deadlines.</div>
+            <div className="compare-claim">
+              <strong>{cut}% less carbon</strong>
+              <span className="note">Same fleet energy. Same driver deadlines.</span>
             </div>
           </div>
         </section>
@@ -118,6 +126,7 @@ function ImpactBody({
                   <th>session</th>
                   <th className="num">delivered</th>
                   <th className="num">finished</th>
+                  <th className="num">day</th>
                 </tr>
               </thead>
               <tbody>
@@ -128,6 +137,7 @@ function ImpactBody({
                     </td>
                     <td className="num">{kw(session.energyDeliveredKwh)} kWh</td>
                     <td className="num">{session.unpluggedMs ? clockTime(session.unpluggedMs, timezone) : '--'}</td>
+                    <td className="num">{session.unpluggedMs ? dayLabel(session.unpluggedMs, timezone) : '--'}</td>
                   </tr>
                 ))}
               </tbody>

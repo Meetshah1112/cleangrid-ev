@@ -76,3 +76,7 @@ export const modeLabel: Record<string, string> = {
   fastest: 'Fastest',
   balanced: 'Balanced',
 };
+
+/** Day and short month in the site's zone, to tell two sessions by the same driver apart. */
+export const dayLabel = (ms: number, timeZone: string): string =>
+  new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short' }).format(new Date(ms));

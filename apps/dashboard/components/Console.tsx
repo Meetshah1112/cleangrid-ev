@@ -12,7 +12,7 @@ export function Console({
   children,
 }: {
   readonly page: ConsolePage;
-  readonly children: (context: { site: Site | null; live: LiveSite }) => ReactNode;
+  readonly children: (context: { site: Site | null; live: LiveSite; selectSite: (siteId: string) => void }) => ReactNode;
 }) {
   const selection = useSiteSelection();
   const live = useLiveSite(selection.siteId);
@@ -29,7 +29,7 @@ export function Console({
       connected={live.connected}
     >
       {error && <div className="error">Cannot reach the server: {error}</div>}
-      {children({ site: selection.site, live })}
+      {children({ site: selection.site, live, selectSite: selection.select })}
     </Shell>
   );
 }
