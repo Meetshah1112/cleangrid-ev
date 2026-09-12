@@ -47,9 +47,23 @@ export async function getJson(api, path, role = 'operator') {
   return (await response.json()).data;
 }
 
+/**
+ * Stop a spawned server and everything it started.
+ *
+ * These are spawned with `shell: true`, so the child is a shell and the server is its grandchild.
+ * Signalling the child kills only the shell on Windows and leaves the server holding its port —
+ * which is worse than a leak: the next run finds a healthy server on that port, connects to it,
+ * and reports one run's sessions on top of another's. So the whole tree goes.
+ */
 export function kill(child) {
+  const pid = child?.pid;
+  if (pid === undefined) return;
   try {
-    child?.kill('SIGTERM');
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', shell: true });
+    } else {
+      child.kill('SIGTERM');
+    }
   } catch {
     // already gone
   }

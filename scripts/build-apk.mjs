@@ -65,8 +65,12 @@ const env = {
   JAVA_HOME: java,
   PATH: `${join(java, 'bin')}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}`,
   EXPO_PUBLIC_API_URL: api,
-  EXPO_PUBLIC_DRIVER_ID: arg('driver', 'drv-amara'),
-  EXPO_PUBLIC_SITE_ID: arg('site', 'site-riverside'),
+  // Only set when asked for. EXPO_PUBLIC_* values are inlined into the bundle at build time, so a
+  // default here silently overrides the one in src/api.ts and the app opens on whichever site was
+  // written down in this file — which is how it kept opening on Riverside after the app had moved
+  // on. No flag, no variable, and the app's own default wins.
+  ...(arg('driver') ? { EXPO_PUBLIC_DRIVER_ID: arg('driver') } : {}),
+  ...(arg('site') ? { EXPO_PUBLIC_SITE_ID: arg('site') } : {}),
   // The C++ codegen compile is the memory-hungry part; two jobs keeps it inside a laptop.
   CMAKE_BUILD_PARALLEL_LEVEL: '2',
   GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx3072m',
