@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
 /**
  * Runs one simulated day end to end: starts the server on a sped-up clock, replays the scenario
  * through simulated OCPP chargers, then prints what each driver got.
  *
- *   node scripts/demo.mjs [--scale 120] [--scenario ./scenarios/day-one.json] [--scheduler greedy]
+ *   node scripts/demo.mjs [--scale 120] [--scenario ./scenarios/gandhinagar-secretariat.json]
+ *                          [--scheduler greedy] [--port 8080]
+ *
+ * The site and its currency are read from the scenario. They used to be written down here, which
+ * meant pointing this at any site but Riverside asked the wrong one for its numbers and got a 403.
  */
 
 const args = process.argv.slice(2);
@@ -16,11 +21,13 @@ const flag = (name, fallback) => {
 };
 
 const scale = flag('scale', '120');
-const scenario = flag('scenario', './scenarios/day-one.json');
+const scenario = flag('scenario', './scenarios/gandhinagar-secretariat.json');
 const scheduler = flag('scheduler', 'lp');
 const forecast = flag('forecast', 'synthetic');
 const port = flag('port', '8080');
 const api = `http://127.0.0.1:${port}`;
+
+const site = JSON.parse(readFileSync(scenario, 'utf8')).site;
 
 const children = [];
 let shuttingDown = false;
@@ -115,9 +122,9 @@ async function main() {
   if (code !== 0) console.log(`\nsimulator exited with code ${code}\n`);
 
   const [overview, sessions, impact] = await Promise.all([
-    getJson('/sites/site-riverside/overview'),
-    getJson('/sites/site-riverside/sessions?limit=100'),
-    getJson('/sites/site-riverside/reports'),
+    getJson(`/sites/${site.id}/overview`),
+    getJson(`/sites/${site.id}/sessions?limit=100`),
+    getJson(`/sites/${site.id}/reports`),
   ]);
 
   const localTime = (ms) =>
@@ -155,7 +162,7 @@ async function main() {
         'green score': report?.greenScore ?? '-',
         'renewable %': report ? Math.round(report.renewableShare * 100) : '-',
         'CO2 avoided kg': report ? Number(report.avoidedCo2Kg.toFixed(2)) : '-',
-        'saved GBP': report ? Number(report.costSaved.toFixed(2)) : '-',
+        [`saved ${site.currency}`]: report ? Number(report.costSaved.toFixed(2)) : '-',
       };
     }),
   );
@@ -164,8 +171,8 @@ async function main() {
   console.table([
     { measure: 'sessions completed', value: impact.sessions },
     { measure: 'energy delivered kWh', value: impact.energyKwh },
-    { measure: 'cost GBP', value: impact.cost },
-    { measure: 'cost if dumb charging GBP', value: impact.baselineCost },
+    { measure: `cost ${site.currency}`, value: impact.cost },
+    { measure: `cost if dumb charging ${site.currency}`, value: impact.baselineCost },
     { measure: 'CO2 kg', value: impact.co2Kg },
     { measure: 'CO2 if dumb charging kg', value: impact.baselineCo2Kg },
     { measure: 'CO2 avoided kg', value: impact.avoidedCo2Kg },
