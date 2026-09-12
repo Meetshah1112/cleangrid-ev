@@ -163,6 +163,10 @@ class MemorySessionRepo extends Store<ChargingSession> implements SessionRepo {
     this.transactionCounter += 1;
     return this.transactionCounter;
   }
+
+  async resumeTransactionIds(highestIssued: number): Promise<void> {
+    if (Number.isFinite(highestIssued)) this.transactionCounter = Math.max(this.transactionCounter, highestIssued);
+  }
 }
 
 class MemoryMeterRepo implements MeterRepo {

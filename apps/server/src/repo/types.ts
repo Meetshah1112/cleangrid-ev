@@ -58,6 +58,12 @@ export interface SessionRepo {
   /** A connector can only carry one transaction at a time; this is the one it is carrying. */
   findActiveByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null>;
   nextTransactionId(): Promise<number>;
+  /**
+   * Continue the OCPP transaction sequence above ids already issued. A restart must not reuse a
+   * number the stored record has seen, because a transaction id identifies a charging session for
+   * as long as it is kept.
+   */
+  resumeTransactionIds(highestIssued: number): Promise<void>;
 }
 
 export interface MeterRepo {

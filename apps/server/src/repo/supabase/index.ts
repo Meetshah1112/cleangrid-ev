@@ -58,10 +58,21 @@ export interface SupabaseRepoOptions {
   readonly mirror?: MirrorOptions;
 }
 
+export interface HydrationSummary {
+  readonly sites: number;
+  readonly chargers: number;
+  readonly profiles: number;
+  readonly vehicles: number;
+  /** OCPP transaction ids already issued, so this process continues above them. */
+  readonly transactionIdsThrough: number;
+  /** Sessions left open by a previous process, closed because their sockets did not survive it. */
+  readonly orphansClosed: number;
+}
+
 export interface SupabaseRepositories {
   readonly repos: Repositories;
   /** Load the topology Postgres already knows about, before the scenario seed runs. */
-  hydrate(): Promise<{ sites: number; chargers: number; profiles: number; vehicles: number }>;
+  hydrate(): Promise<HydrationSummary>;
   stats(): MirrorStats;
   flush(): Promise<void>;
   close(): Promise<void>;
@@ -117,6 +128,7 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
       findActiveByConnector: (chargerId, connectorId) =>
         memory.sessions.findActiveByConnector(chargerId, connectorId),
       nextTransactionId: () => memory.sessions.nextTransactionId(),
+      resumeTransactionIds: (highest) => memory.sessions.resumeTransactionIds(highest),
       save: async (session: ChargingSession) =>
         mirror(await memory.sessions.save(session), (value) => writer.enqueue('sessions', sessionRow(value), 'id')),
       update: async (id, patch) =>
@@ -195,13 +207,41 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
     return value;
   }
 
-  async function hydrate(): Promise<{ sites: number; chargers: number; profiles: number; vehicles: number }> {
+  async function hydrate(): Promise<HydrationSummary> {
     // Topology first: a session cannot be read before the charger it is plugged into exists.
     const sites = await load('sites', rowToSite, (site) => memory.sites.save(site));
     const profiles = await load('profiles', rowToProfile, (profile) => memory.profiles.save(profile));
     const vehicles = await load('vehicles', rowToVehicle, (vehicle) => memory.vehicles.save(vehicle));
     const chargers = await load('chargers', rowToCharger, (charger) => memory.chargers.save(charger));
-    return { sites, profiles, vehicles, chargers };
+
+    // A transaction id names a charging session for as long as the record keeps it, so the
+    // sequence has to continue above every id already stored rather than restart at its default.
+    const highest = await client
+      .from('sessions')
+      .select('transaction_id')
+      .not('transaction_id', 'is', null)
+      .order('transaction_id', { ascending: false })
+      .limit(1);
+    const transactionIdsThrough = Number(highest.data?.[0]?.transaction_id ?? 0);
+    if (transactionIdsThrough > 0) await memory.sessions.resumeTransactionIds(transactionIdsThrough);
+
+    // An OCPP session belongs to a live socket. None survived the last process, so anything still
+    // marked open is an orphan: leaving it active would have the optimiser plan for absent cars.
+    const orphans = await client
+      .from('sessions')
+      .update({ status: 'aborted', unplugged_at: new Date().toISOString() })
+      .in('status', ['pending', 'active'])
+      .select('id');
+    if (orphans.error) options.logger.warn({ error: orphans.error.message }, 'could not close orphaned sessions');
+
+    return {
+      sites,
+      profiles,
+      vehicles,
+      chargers,
+      transactionIdsThrough,
+      orphansClosed: orphans.data?.length ?? 0,
+    };
   }
 
   async function load<T>(
