@@ -13,7 +13,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { AppError, NotFoundError, ValidationError } from '../../errors';
 import { requireRole, requireSessionAccess } from '../auth';
-import type { ApiContext } from '../context';
+import { runtimeFor, runtimeForSession, type ApiContext } from '../context';
 import { baseLoadForGrid } from '../../optimiser/problem';
 import { ok } from '../app';
 
@@ -73,8 +73,21 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
       source: 'app',
       maxPowerKw,
     });
-    ctx.loop.request('session_declared');
-    return reply.code(201).send(ok(session));
+    // If the charger is online and free, ask it to start. A charger that refuses is not an error:
+    // the driver simply plugs the cable in themselves and the session is waiting for them.
+    let remoteStart: string | null = null;
+    if (charger.online) {
+      const connector = await ctx.repos.connectors.get(charger.id, body.connectorId);
+      if (!connector?.sessionId) {
+        remoteStart = await ctx.gateway
+          .remoteStart(charger.id, { connectorId: body.connectorId, idTag: session.idTag })
+          .then((response) => response.status)
+          .catch((error: Error) => `failed: ${error.message}`);
+      }
+    }
+
+    runtimeFor(ctx, charger.siteId).loop.request('session_declared');
+    return reply.code(201).send(ok({ ...session, remoteStart }));
   });
 
   /**
@@ -102,7 +115,7 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
       maxPowerKw: body.maxPowerKw,
     });
 
-    const plan = ctx.loop.latestPlan;
+    const plan = runtimeFor(ctx, body.siteId).loop.latestPlan;
     const alreadyPlannedKw =
       plan && plan.grid.startMs === grid.startMs && plan.siteLoadKw.length === grid.slots
         ? plan.siteLoadKw
@@ -161,7 +174,7 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
     const session = await ctx.repos.sessions.get(id);
     if (!session) throw new NotFoundError('session', id);
     requireSessionAccess(request.principal, session);
-    const plan = ctx.loop.latestPlan;
+    const plan = runtimeForSession(ctx, session.siteId)?.loop.latestPlan ?? null;
     return ok({
       session,
       remainingKwh: ctx.sessions.remainingKwh(session),
@@ -203,7 +216,7 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
       ...(body.energyKwh === undefined ? {} : { energyKwh: body.energyKwh }),
       ...(body.mode === undefined ? {} : { mode: body.mode }),
     });
-    ctx.loop.request('session_patched');
+    runtimeForSession(ctx, session.siteId)?.loop.request('session_patched');
     return ok(updated);
   });
 

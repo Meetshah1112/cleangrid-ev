@@ -55,6 +55,8 @@ export interface SessionRepo {
   getByTransaction(transactionId: number): Promise<ChargingSession | null>;
   /** A session the driver declared before the charger reported the transaction. */
   findPending(chargerId: string, connectorId: number, idTag?: string): Promise<ChargingSession | null>;
+  /** A connector can only carry one transaction at a time; this is the one it is carrying. */
+  findActiveByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null>;
   nextTransactionId(): Promise<number>;
 }
 

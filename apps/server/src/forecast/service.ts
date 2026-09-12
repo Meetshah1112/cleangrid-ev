@@ -31,7 +31,8 @@ export class SyntheticForecastProvider implements ForecastProvider {
 }
 
 export interface ForecastServiceDeps {
-  readonly provider: ForecastProvider;
+  /** One provider, or a choice per site: live feeds exist for some countries and not others. */
+  readonly provider: ForecastProvider | ((site: Site) => ForecastProvider);
   readonly fallback?: ForecastProvider;
   readonly clock: Clock;
   readonly bus: EventBus;
@@ -58,6 +59,10 @@ export class ForecastService {
 
   constructor(private readonly deps: ForecastServiceDeps) {}
 
+  private providerFor(site: Site): ForecastProvider {
+    return typeof this.deps.provider === 'function' ? this.deps.provider(site) : this.deps.provider;
+  }
+
   async snapshot(site: Site, force = false): Promise<ForecastSnapshot> {
     const nowMs = this.deps.clock.now();
     const horizonHours = this.deps.horizonHours ?? 26;
@@ -69,9 +74,9 @@ export class ForecastService {
     const startMs = nowMs - MS_PER_MINUTE * 60;
     let snapshot: ForecastSnapshot;
     try {
-      snapshot = await this.deps.provider.fetch(site, startMs, horizonHours);
+      snapshot = await this.providerFor(site).fetch(site, startMs, horizonHours);
     } catch (error) {
-      this.deps.logger.warn({ err: error, provider: this.deps.provider.name }, 'forecast source failed');
+      this.deps.logger.warn({ err: error, provider: this.providerFor(site).name }, 'forecast source failed');
       if (cached) return cached.snapshot;
       const fallback = this.deps.fallback ?? new SyntheticForecastProvider();
       snapshot = await fallback.fetch(site, startMs, horizonHours);
@@ -114,7 +119,7 @@ export class ForecastService {
 
     let fallback: ForecastSnapshot;
     try {
-      fallback = await this.deps.provider.fetch(site, startMs, hours);
+      fallback = await this.providerFor(site).fetch(site, startMs, hours);
     } catch {
       fallback = await (this.deps.fallback ?? new SyntheticForecastProvider()).fetch(site, startMs, hours);
     }

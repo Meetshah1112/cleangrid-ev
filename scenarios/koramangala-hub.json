@@ -1,0 +1,129 @@
+{
+  "name": "koramangala-hub",
+  "description": "A ride-hailing fleet depot in Bengaluru. Cabs come off shift between 21:30 and 23:00 and must be full before the morning shift at 05:30. Deliberately overlapping the London site in real time, so one demo can show two sites on different grids, currencies and time zones at once.",
+  "day": "2026-09-12",
+  "simStart": "2026-09-12T21:20",
+  "site": {
+    "id": "site-koramangala",
+    "name": "Koramangala Fleet Hub",
+    "timezone": "Asia/Kolkata",
+    "country": "IN",
+    "lat": 12.9352,
+    "lng": 77.6245,
+    "regionCode": "KA",
+    "gridConnectionKw": 250,
+    "demandChargePerKwMonth": 300,
+    "currency": "INR",
+    "defaultMode": "cheapest",
+    "baseLoadKw": [45, 40, 36, 34, 34, 38, 58, 82, 112, 132, 146, 152, 150, 152, 150, 142, 126, 108, 94, 84, 74, 64, 56, 50]
+  },
+  "chargers": [
+    { "id": "C-03", "ocppIdentity": "C-03", "label": "Dock 3", "maxPowerKw": 22, "minPowerKw": 1.4, "vendor": "CleanGrid", "model": "Sim-22AC" },
+    { "id": "C-08", "ocppIdentity": "C-08", "label": "Dock 8", "maxPowerKw": 22, "minPowerKw": 1.4, "vendor": "CleanGrid", "model": "Sim-22AC" },
+    { "id": "C-11", "ocppIdentity": "C-11", "label": "Dock 11", "maxPowerKw": 22, "minPowerKw": 1.4, "vendor": "CleanGrid", "model": "Sim-22AC" },
+    { "id": "C-15", "ocppIdentity": "C-15", "label": "Fast bay 15", "maxPowerKw": 50, "minPowerKw": 5, "vendor": "CleanGrid", "model": "Sim-50DC" },
+    { "id": "C-19", "ocppIdentity": "C-19", "label": "Fast bay 19", "maxPowerKw": 50, "minPowerKw": 5, "vendor": "CleanGrid", "model": "Sim-50DC" },
+    { "id": "C-22", "ocppIdentity": "C-22", "label": "Dock 22", "maxPowerKw": 22, "minPowerKw": 1.4, "vendor": "CleanGrid", "model": "Sim-22AC" },
+    { "id": "C-24", "ocppIdentity": "C-24", "label": "Visitor dock 24", "maxPowerKw": 22, "minPowerKw": 1.4, "vendor": "CleanGrid", "model": "Sim-22AC" }
+  ],
+  "staff": [
+    { "id": "ops-meera", "displayName": "Meera Shah", "role": "operator" }
+  ],
+  "drivers": [
+    { "id": "drv-mira", "displayName": "Mira Rao", "idTag": "TAG-MIRA", "defaultMode": "greenest", "defaultDwellHours": 7, "defaultEnergyKwh": 35 },
+    { "id": "drv-arjun", "displayName": "Arjun Menon", "idTag": "TAG-ARJUN", "defaultMode": "cheapest", "defaultDwellHours": 7, "defaultEnergyKwh": 40 },
+    { "id": "drv-fatima", "displayName": "Fatima Sheikh", "idTag": "TAG-FATIMA", "defaultMode": "balanced", "defaultDwellHours": 7, "defaultEnergyKwh": 38 },
+    { "id": "drv-ravi", "displayName": "Ravi Kulkarni", "idTag": "TAG-RAVI", "defaultMode": "fastest", "defaultDwellHours": 6, "defaultEnergyKwh": 30 },
+    { "id": "drv-sneha", "displayName": "Sneha Iyer", "idTag": "TAG-SNEHA", "defaultMode": "cheapest", "defaultDwellHours": 7, "defaultEnergyKwh": 42 },
+    { "id": "drv-vikram", "displayName": "Vikram Bose", "idTag": "TAG-VIKRAM", "defaultMode": "balanced", "defaultDwellHours": 7, "defaultEnergyKwh": 36 }
+  ],
+  "vehicles": [
+    { "id": "veh-mira", "driverId": "drv-mira", "label": "Tata Nexon EV", "batteryKwh": 45, "maxChargeKw": 11 },
+    { "id": "veh-arjun", "driverId": "drv-arjun", "label": "MG ZS EV", "batteryKwh": 50, "maxChargeKw": 11 },
+    { "id": "veh-fatima", "driverId": "drv-fatima", "label": "Tata Tigor EV", "batteryKwh": 26, "maxChargeKw": 7.4 },
+    { "id": "veh-ravi", "driverId": "drv-ravi", "label": "BYD e6", "batteryKwh": 71, "maxChargeKw": 50 },
+    { "id": "veh-sneha", "driverId": "drv-sneha", "label": "Hyundai Kona", "batteryKwh": 39, "maxChargeKw": 11 },
+    { "id": "veh-vikram", "driverId": "drv-vikram", "label": "Mahindra XUV400", "batteryKwh": 39, "maxChargeKw": 11 }
+  ],
+  "arrivals": [
+    {
+      "id": "arr-mira",
+      "chargerId": "C-03",
+      "driverId": "drv-mira",
+      "vehicleId": "veh-mira",
+      "via": "app",
+      "arriveAt": "2026-09-12T21:35",
+      "departAt": "2026-09-13T05:45",
+      "deadlineAt": "2026-09-13T05:30",
+      "energyKwh": 32,
+      "startSoc": 0.2,
+      "mode": "greenest"
+    },
+    {
+      "id": "arr-arjun",
+      "chargerId": "C-08",
+      "driverId": "drv-arjun",
+      "vehicleId": "veh-arjun",
+      "via": "app",
+      "arriveAt": "2026-09-12T21:50",
+      "departAt": "2026-09-13T05:40",
+      "deadlineAt": "2026-09-13T05:30",
+      "energyKwh": 38,
+      "startSoc": 0.18,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-fatima",
+      "chargerId": "C-11",
+      "driverId": "drv-fatima",
+      "vehicleId": "veh-fatima",
+      "via": "rfid",
+      "arriveAt": "2026-09-12T22:05",
+      "departAt": "2026-09-13T06:00",
+      "deadlineAt": "2026-09-13T05:45",
+      "energyKwh": 20,
+      "startSoc": 0.22,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-ravi",
+      "chargerId": "C-15",
+      "driverId": "drv-ravi",
+      "vehicleId": "veh-ravi",
+      "via": "app",
+      "arriveAt": "2026-09-12T22:20",
+      "departAt": "2026-09-13T02:30",
+      "deadlineAt": "2026-09-13T02:00",
+      "energyKwh": 45,
+      "startSoc": 0.15,
+      "mode": "fastest",
+      "note": "Back out on an early airport run, so almost no slack: the fast bay and fastest mode."
+    },
+    {
+      "id": "arr-sneha",
+      "chargerId": "C-19",
+      "driverId": "drv-sneha",
+      "vehicleId": "veh-sneha",
+      "via": "app",
+      "arriveAt": "2026-09-12T22:40",
+      "departAt": "2026-09-13T05:50",
+      "deadlineAt": "2026-09-13T05:30",
+      "energyKwh": 30,
+      "startSoc": 0.2,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-vikram",
+      "chargerId": "C-22",
+      "driverId": "drv-vikram",
+      "vehicleId": "veh-vikram",
+      "via": "app",
+      "arriveAt": "2026-09-12T23:00",
+      "departAt": "2026-09-13T06:10",
+      "deadlineAt": "2026-09-13T05:45",
+      "energyKwh": 28,
+      "startSoc": 0.25,
+      "mode": "balanced"
+    }
+  ]
+}

@@ -42,6 +42,8 @@ export interface GatewayDeps {
   readonly sessions: SessionService;
   readonly heartbeatIntervalS?: number;
   readonly callTimeoutMs?: number;
+  /** Off in baseline mode, where nothing may limit a charger. */
+  readonly safetyProfiles?: boolean;
 }
 
 interface Connection {
@@ -245,6 +247,7 @@ export class OcppGateway {
    * grid connection. The optimiser's own profiles sit above it and override it.
    */
   private async installSafetyProfile(charger: Charger): Promise<void> {
+    if (this.deps.safetyProfiles === false) return;
     try {
       const site = await this.deps.repos.sites.get(charger.siteId);
       if (!site) return;

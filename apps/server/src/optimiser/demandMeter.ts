@@ -13,9 +13,17 @@ interface LastReading {
   readonly deliveredKwh: number;
 }
 
+export interface DemandInterval {
+  readonly startMs: number;
+  readonly chargingKw: number;
+  readonly baseLoadKw: number;
+  readonly totalKw: number;
+}
+
 export class DemandMeter {
   private readonly lastReading = new Map<string, LastReading>();
   private readonly bucketsKwh = new Map<number, number>();
+  private readonly closed = new Map<number, DemandInterval>();
   private peakKwSeen = 0;
   private unsubscribe: (() => void)[] = [];
 
@@ -33,13 +41,17 @@ export class DemandMeter {
   }
 
   start(): void {
+    // One meter per site: ignore energy drawn anywhere else.
+    const mine = (siteId: string): boolean => siteId === this.deps.site.id;
     this.unsubscribe = [
-      this.deps.bus.on('meter.updated', ({ session }) =>
-        this.record(session.id, session.energyDeliveredKwh, session.updatedMs),
-      ),
-      this.deps.bus.on('session.ended', ({ session }) =>
-        this.record(session.id, session.energyDeliveredKwh, session.unpluggedMs ?? this.deps.clock.now()),
-      ),
+      this.deps.bus.on('meter.updated', ({ session }) => {
+        if (mine(session.siteId)) this.record(session.id, session.energyDeliveredKwh, session.updatedMs);
+      }),
+      this.deps.bus.on('session.ended', ({ session }) => {
+        if (mine(session.siteId)) {
+          this.record(session.id, session.energyDeliveredKwh, session.unpluggedMs ?? this.deps.clock.now());
+        }
+      }),
     ];
   }
 
@@ -52,6 +64,17 @@ export class DemandMeter {
   get peakKw(): number {
     this.closeFinishedBuckets();
     return round(this.peakKwSeen, 2);
+  }
+
+  /**
+   * What the site actually drew, interval by interval. This is the line that shows a dumb site
+   * going over its connection, which no plan can show because a dumb site has no plan.
+   */
+  history(fromMs: number, toMs: number): DemandInterval[] {
+    this.closeFinishedBuckets();
+    return [...this.closed.values()]
+      .filter((interval) => interval.startMs >= fromMs && interval.startMs < toMs)
+      .sort((a, b) => a.startMs - b.startMs);
   }
 
   /** Building load at an instant, from the site's hourly profile in local time. */
@@ -102,8 +125,16 @@ export class DemandMeter {
     const intervalHours = this.slotMinutes / 60;
     for (const [bucket, chargingKwh] of this.bucketsKwh) {
       if (bucket >= settledBefore) continue;
-      const drawKw = chargingKwh / intervalHours + this.baseLoadKwAt(bucket + (this.slotMinutes * MS_PER_MINUTE) / 2);
-      this.peakKwSeen = Math.max(this.peakKwSeen, drawKw);
+      const baseLoadKw = this.baseLoadKwAt(bucket + (this.slotMinutes * MS_PER_MINUTE) / 2);
+      const chargingKw = chargingKwh / intervalHours;
+      const totalKw = chargingKw + baseLoadKw;
+      this.peakKwSeen = Math.max(this.peakKwSeen, totalKw);
+      this.closed.set(bucket, {
+        startMs: bucket,
+        chargingKw: round(chargingKw, 2),
+        baseLoadKw: round(baseLoadKw, 2),
+        totalKw: round(totalKw, 2),
+      });
       this.bucketsKwh.delete(bucket);
     }
     this.peakKwSeen = Math.max(this.peakKwSeen, this.baseLoadKwAt(this.deps.clock.now()));

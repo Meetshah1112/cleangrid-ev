@@ -21,6 +21,12 @@ export const configSchema = z.object({
   SIM_START: z.string().default('scenario'),
   SIM_TIME_SCALE: z.coerce.number().positive().max(10_000).default(1),
   SCHEDULER: z.enum(['lp', 'greedy']).default('lp'),
+  /**
+   * off turns the optimiser into a bystander: it plans nothing, dispatches nothing, and no safety
+   * profile is installed, so every car charges flat out from the moment it plugs in. This is the
+   * "dumb charger" baseline, and it is the only honest way to show what the optimiser prevents.
+   */
+  OPTIMISER: z.enum(['on', 'off']).default('on'),
   FORECAST: z.enum(['live', 'synthetic']).default('synthetic'),
   RESOLVE_INTERVAL_MIN: z.coerce.number().positive().max(120).default(5),
   RESOLVE_DEBOUNCE_MS: z.coerce.number().int().min(0).max(60_000).default(2_000),
@@ -35,6 +41,11 @@ export const configSchema = z.object({
    * margin keeps that moment inside the connection, which is how site load management is done.
    */
   CONNECTION_MARGIN_PCT: z.coerce.number().min(0).max(20).default(2),
+  /**
+   * Whether the site honours a flexibility request automatically, as a site under a flexibility
+   * contract would. Off means an operator has to accept each request by hand.
+   */
+  AUTO_ACCEPT_FLEX: bool(true),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),

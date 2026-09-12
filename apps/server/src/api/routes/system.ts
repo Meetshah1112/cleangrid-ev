@@ -8,16 +8,25 @@ import { ok } from '../app';
 /** Health, the shared clock, and the demo clock control. */
 export async function registerSystemRoutes(app: FastifyInstance, ctx: ApiContext): Promise<void> {
   app.get('/health', async () => {
-    const sessions = await ctx.repos.sessions.listActive(ctx.siteId);
+    const perSite = await Promise.all(
+      [...ctx.runtimes.values()].map(async (runtime) => ({
+        siteId: runtime.site.id,
+        name: runtime.site.name,
+        activeSessions: (await ctx.repos.sessions.listActive(runtime.site.id)).length,
+        lastPlanMs: runtime.loop.latestPlan?.solvedMs ?? null,
+        solver: runtime.loop.latestPlan?.solver ?? null,
+      })),
+    );
     return ok({
       status: 'ok',
       nowMs: ctx.clock.now(),
       nowIso: new Date(ctx.clock.now()).toISOString(),
       timeScale: ctx.clock.scale,
       chargersOnline: ctx.gateway.onlineCount(),
-      activeSessions: sessions.length,
-      lastPlanMs: ctx.loop.latestPlan?.solvedMs ?? null,
-      scheduler: ctx.loop.latestPlan?.solver ?? null,
+      activeSessions: perSite.reduce((total, site) => total + site.activeSessions, 0),
+      lastPlanMs: perSite.reduce<number | null>((latest, site) => Math.max(latest ?? 0, site.lastPlanMs ?? 0) || null, null),
+      scheduler: perSite.find((site) => site.solver !== null)?.solver ?? null,
+      sites: perSite,
     });
   });
 
@@ -34,7 +43,7 @@ export async function registerSystemRoutes(app: FastifyInstance, ctx: ApiContext
     }
     if (body.nowAt !== undefined) ctx.clock.jumpTo(Date.parse(body.nowAt));
     if (body.scale !== undefined) ctx.clock.setScale(body.scale);
-    ctx.loop.request('clock_changed');
+    for (const runtime of ctx.runtimes.values()) runtime.loop.request('clock_changed');
     return ok(ctx.clock.snapshot());
   });
 }

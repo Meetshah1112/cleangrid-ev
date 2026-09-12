@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api';
-import type { Charger, Dispatch, FlexEvent, Forecast, Overview, Plan, Session, SiteEvent } from './types';
+import type { Charger, Demand, Dispatch, FlexEvent, Forecast, Overview, Plan, Session, SiteEvent } from './types';
 
 /**
- * Live site state. The dashboard loads a snapshot over REST, then follows the WebSocket channel.
- * If the socket drops it keeps polling, so the numbers are never silently stale.
+ * Live state for one site. The console loads a snapshot over REST, then follows the WebSocket
+ * channel; if the socket drops it keeps polling, so the numbers are never silently stale.
  */
 
 export interface LiveSite {
@@ -17,6 +17,7 @@ export interface LiveSite {
   forecast: Forecast | null;
   flexEvents: FlexEvent[];
   dispatches: Dispatch[];
+  demand: Demand | null;
   nowMs: number;
   timeScale: number;
   connected: boolean;
@@ -26,7 +27,7 @@ export interface LiveSite {
 
 const POLL_MS = 5_000;
 
-export function useLiveSite(): LiveSite {
+export function useLiveSite(siteId: string | null): LiveSite {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -34,6 +35,7 @@ export function useLiveSite(): LiveSite {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [flexEvents, setFlexEvents] = useState<FlexEvent[]>([]);
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+  const [demand, setDemand] = useState<Demand | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [timeScale, setTimeScale] = useState(1);
   const [connected, setConnected] = useState(false);
@@ -41,34 +43,37 @@ export function useLiveSite(): LiveSite {
   const tickRef = useRef<number>(Date.now());
 
   const refresh = useCallback(() => {
+    if (!siteId) return;
     void (async () => {
       try {
-        const [nextOverview, nextSessions, nextChargers, nextFlex, nextDispatches] = await Promise.all([
-          api.overview(),
-          api.sessions(),
-          api.chargers(),
-          api.flexEvents().catch(() => []),
-          api.dispatchLog().catch(() => []),
+        const [nextOverview, nextSessions, nextChargers, nextFlex, nextDispatches, nextDemand] = await Promise.all([
+          api.overview(siteId),
+          api.sessions(siteId),
+          api.chargers(siteId),
+          api.flexEvents(siteId).catch(() => []),
+          api.dispatchLog(siteId).catch(() => []),
+          api.demand(siteId).catch(() => null),
         ]);
         setOverview(nextOverview);
         setSessions(nextSessions);
         setChargers(nextChargers);
         setFlexEvents(nextFlex);
         setDispatches(nextDispatches);
+        setDemand(nextDemand);
         setNowMs(nextOverview.nowMs);
         tickRef.current = Date.now();
         setError(null);
         const [nextPlan, nextForecast] = await Promise.all([
-          api.plan().catch(() => null),
-          api.forecast().catch(() => null),
+          api.plan(siteId).catch(() => null),
+          api.forecast(siteId).catch(() => null),
         ]);
-        if (nextPlan) setPlan(nextPlan);
+        setPlan(nextPlan);
         if (nextForecast) setForecast(nextForecast);
       } catch (caught) {
         setError((caught as Error).message);
       }
     })();
-  }, []);
+  }, [siteId]);
 
   useEffect(() => {
     refresh();
@@ -87,12 +92,13 @@ export function useLiveSite(): LiveSite {
   }, [timeScale]);
 
   useEffect(() => {
+    if (!siteId) return undefined;
     let socket: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
 
     const connect = (): void => {
-      socket = new WebSocket(api.socketUrl());
+      socket = new WebSocket(api.socketUrl(siteId));
       socket.onopen = () => setConnected(true);
       socket.onclose = () => {
         setConnected(false);
@@ -151,7 +157,21 @@ export function useLiveSite(): LiveSite {
       if (retry) clearTimeout(retry);
       socket?.close();
     };
-  }, []);
+  }, [siteId]);
 
-  return { overview, plan, sessions, chargers, forecast, flexEvents, dispatches, nowMs, timeScale, connected, error, refresh };
+  return {
+    overview,
+    plan,
+    sessions,
+    chargers,
+    forecast,
+    flexEvents,
+    dispatches,
+    demand,
+    nowMs,
+    timeScale,
+    connected,
+    error,
+    refresh,
+  };
 }

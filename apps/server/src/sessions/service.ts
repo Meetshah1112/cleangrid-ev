@@ -120,6 +120,11 @@ export class SessionService {
     const charger = await repos.chargers.get(input.chargerId);
     if (!charger) throw new NotFoundError('charger', input.chargerId);
 
+    // A connector carries one transaction at a time. If something is still open on it, the cable
+    // came out without a StopTransaction or the charger restarted: close it before opening another.
+    const stale = await repos.sessions.findActiveByConnector(input.chargerId, input.connectorId);
+    if (stale) await this.abandon(stale.id, 'a new transaction started on this connector');
+
     const transactionId = await repos.sessions.nextTransactionId();
     const declared = await repos.sessions.findPending(input.chargerId, input.connectorId, input.idTag);
     const base = declared ?? (await this.openFromDefaults(input, charger.siteId, charger.maxPowerKw));

@@ -19,6 +19,8 @@ const siteSchema = z.object({
   id,
   name: z.string().min(1),
   timezone: z.string().min(1),
+  /** ISO country code. Only GB has live carbon and price feeds; elsewhere the forecast is modelled. */
+  country: z.string().length(2).default('GB'),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   regionCode: z.string().min(1).max(4),

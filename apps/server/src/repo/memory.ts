@@ -148,6 +148,17 @@ class MemorySessionRepo extends Store<ChargingSession> implements SessionRepo {
     return candidates[0] ?? null;
   }
 
+  async findActiveByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null> {
+    return (
+      [...this.items.values()]
+        .filter(
+          (session) =>
+            session.status === 'active' && session.chargerId === chargerId && session.connectorId === connectorId,
+        )
+        .sort((a, b) => b.pluggedInMs - a.pluggedInMs)[0] ?? null
+    );
+  }
+
   async nextTransactionId(): Promise<number> {
     this.transactionCounter += 1;
     return this.transactionCounter;

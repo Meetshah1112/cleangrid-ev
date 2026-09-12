@@ -1,0 +1,67 @@
+📱 *DRIVER APP*
+_The driver flow makes the promise understandable: “your car will be ready on time.”_
+
+🔹 *Sign in*
+*Description:* Simple email OTP entry for a driver.
+*Core:* Supabase auth; loads driver profile, vehicles, and authorised site/session data.
+
+🔹 *Home / Plug in*
+*Description:* Starting screen, centred on current vehicle & cleanest charging window.
+*Core:* Scan/enter charger code; view battery state, 24h carbon strip, price signal & recommended window.
+
+🔹 *Session setup*
+*Description:* Guided request for energy needed and return deadline.
+*Core:* Set kWh/SoC, deadline & mode; show Cheapest, Greenest, Fastest previews; reject impossible requests.
+
+🔹 *Live session*
+*Description:* Real-time view after charger is connected.
+*Core:* Show charging state, current kW, delivered vs needed, timeline, Green Score; allow "Charge now" or Stop.
+
+🔹 *Session summary*
+*Description:* Clear proof of what the scheduler achieved.
+*Core:* Final Green Score, cost, renewable share, avoided CO₂, cost saved, and “verified from meter” status.
+
+🔹 *History / Impact*
+*Description:* Personal record of clean charging over time.
+*Core:* List past sessions; show cumulative savings, avoided CO₂, avg Green Score, best times/sites.
+
+🔹 *Vehicles & settings*
+*Description:* Driver preferences and vehicle capabilities.
+*Core:* Manage battery capacity, max charging power, default mode, deadline habits & notifications.
+
+➖➖➖➖➖➖➖➖➖➖
+
+🖥️ *OPERATOR CONSOLE*
+_The operator flow makes the system defensible: every optimisation and CO₂ saving can be inspected._
+
+🔸 *Overview*
+*Description:* Live control-room view for one charging site.
+*Core:* Show connected vehicles, site demand vs 100kW cap, carbon intensity, projected cost, peak reduction & avoided CO₂.
+
+🔸 *Forecast & planning*
+*Description:* Explains why CleanGrid chooses certain charging periods.
+*Core:* Plot 24h carbon, price, base-load & demand forecasts; mark best windows & source freshness.
+
+🔸 *Schedule & load distribution*
+*Description:* The core scheduler proof screen.
+*Core:* Show planned charging blocks, grid-cap line, total site draw, deadlines & flattened peak. Allow manual replan.
+
+🔸 *Charger fleet*
+*Description:* Operational view of OCPP-connected chargers.
+*Core:* Status for every connector: availability, current power, driver/session, progress, last heartbeat & reset control.
+
+🔸 *Sessions & exceptions*
+*Description:* Queue of active, pending, and at-risk charging sessions.
+*Core:* Inspect driver need, delivered energy, deadline risk; operator can override mode/deadline or stop a session.
+
+🔸 *Grid-flex response*
+*Description:* Handles grid requests to temporarily reduce site demand.
+*Core:* Show requested cap, flexible capacity, affected sessions, projected reward, accept/decline action & ramp-down plan.
+
+🔸 *Impact reports*
+*Description:* Defensible sustainability and financial reporting.
+*Core:* Compare actual vs “charge immediately” baseline; report shifted energy, avoided CO₂, cost savings & session audit data.
+
+🔸 *Site settings & data health*
+*Description:* Administrative control for the operator.
+*Core:* Set site grid connection & default mode; review forecast status, cache freshness, OCPP connectivity & logs.

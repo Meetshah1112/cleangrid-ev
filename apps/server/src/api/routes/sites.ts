@@ -2,7 +2,7 @@ import { MS_PER_HOUR, round, sampleSeries, valueAtClamped } from '@cleangrid/sha
 import type { FastifyInstance } from 'fastify';
 import { NotFoundError } from '../../errors';
 import { requireRole, requireSite } from '../auth';
-import type { ApiContext } from '../context';
+import { runtimeFor, type ApiContext } from '../context';
 import { ok } from '../app';
 
 /** The operator-facing side: what the site is doing now and what the plan says it will do. */
@@ -13,10 +13,8 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     return site;
   };
 
-  app.get('/sites', async (request) => {
-    requireRole(request.principal, 'operator', 'grid_operator');
-    return ok(await ctx.repos.sites.list());
-  });
+  /** Every signed-in user needs to know which sites exist; a driver picks one to charge at. */
+  app.get('/sites', async () => ok(await ctx.repos.sites.list()));
 
   app.get('/sites/:siteId/forecast', async (request) => {
     const { siteId } = request.params as { siteId: string };
@@ -52,7 +50,8 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
       ctx.repos.chargers.listBySite(siteId),
       ctx.forecast.snapshot(site),
     ]);
-    const plan = ctx.loop.latestPlan;
+    const { loop } = runtimeFor(ctx, siteId);
+    const plan = loop.latestPlan;
     const nowMs = ctx.clock.now();
     const chargingKw = sessions.reduce((total, session) => total + session.currentPowerKw, 0);
     const baseKw = plan?.baseLoadKw[0] ?? 0;
@@ -74,7 +73,7 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
       carbonGPerKwh: round(valueAtClamped(snapshot.carbon, nowMs), 1),
       renewableShare: round(valueAtClamped(snapshot.renewable, nowMs), 3),
       pricePerKwh: round(valueAtClamped(snapshot.price, nowMs), 4),
-      peakSoFarKw: round(ctx.loop.peakKw, 2),
+      peakSoFarKw: round(loop.peakKw, 2),
       plannedPeakKw: plan?.totals.peakKw ?? null,
       plannedCost: plan?.totals.cost ?? null,
       plannedCo2Kg: plan?.totals.co2Kg ?? null,
@@ -95,7 +94,14 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     const toMs = query.to ? Date.parse(query.to) : ctx.clock.now() + MS_PER_HOUR;
     const fromMs = query.from ? Date.parse(query.from) : toMs - 30 * 24 * MS_PER_HOUR;
     const impact = await ctx.reports.siteImpact(site, fromMs, toMs);
-    return ok({ ...impact, fromMs, toMs, peakKw: round(ctx.loop.peakKw, 2), currency: site.currency });
+    return ok({
+      ...impact,
+      fromMs,
+      toMs,
+      peakKw: round(runtimeFor(ctx, siteId).loop.peakKw, 2),
+      currency: site.currency,
+      gridConnectionKw: site.gridConnectionKw,
+    });
   });
 
   app.get('/sites/:siteId/dispatch-log', async (request) => {
@@ -106,11 +112,31 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     return ok(await ctx.repos.dispatches.listBySite(siteId, Math.min(500, Math.max(1, Number(query.limit ?? 50)))));
   });
 
+  /** What the site actually drew, interval by interval, against its connection. */
+  app.get('/sites/:siteId/demand', async (request) => {
+    const { siteId } = request.params as { siteId: string };
+    requireRole(request.principal, 'operator', 'grid_operator');
+    requireSite(request.principal, siteId);
+    const site = await loadSite(siteId);
+    const query = request.query as { hours?: string };
+    const hours = Math.min(48, Math.max(1, Number(query.hours ?? 24)));
+    const toMs = ctx.clock.now();
+    const fromMs = toMs - hours * MS_PER_HOUR;
+    return ok({
+      fromMs,
+      toMs,
+      stepMinutes: ctx.config.SLOT_MINUTES,
+      gridConnectionKw: site.gridConnectionKw,
+      peakKw: round(runtimeFor(ctx, siteId).loop.peakKw, 2),
+      intervals: runtimeFor(ctx, siteId).demand.history(fromMs, toMs),
+    });
+  });
+
   app.get('/sites/:siteId/plans/latest', async (request) => {
     const { siteId } = request.params as { siteId: string };
     requireRole(request.principal, 'operator', 'grid_operator');
     requireSite(request.principal, siteId);
-    const plan = ctx.loop.latestPlan ?? (await ctx.repos.plans.latest(siteId));
+    const plan = runtimeFor(ctx, siteId).loop.latestPlan ?? (await ctx.repos.plans.latest(siteId));
     if (!plan) throw new NotFoundError('plan for site', siteId);
     return ok(plan);
   });
@@ -135,9 +161,9 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     );
   });
 
+  /** Drivers need this too: it is how they choose which bay they are standing at. */
   app.get('/sites/:siteId/chargers', async (request) => {
     const { siteId } = request.params as { siteId: string };
-    requireRole(request.principal, 'operator', 'grid_operator');
     requireSite(request.principal, siteId);
     const chargers = await ctx.repos.chargers.listBySite(siteId);
     return ok(
@@ -154,7 +180,7 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     const { siteId } = request.params as { siteId: string };
     requireRole(request.principal, 'operator');
     requireSite(request.principal, siteId);
-    const plan = await ctx.loop.solve('operator_request');
+    const plan = await runtimeFor(ctx, siteId).loop.solve('operator_request');
     return ok(plan === null ? { queued: true } : { planId: plan.id, status: plan.status, solver: plan.solver });
   });
 }

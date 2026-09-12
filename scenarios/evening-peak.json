@@ -1,0 +1,394 @@
+{
+  "name": "evening-peak",
+  "description": "Eight cars plug in together at six in the evening, the dirtiest and most expensive hour of the day, and all need charging by the morning. Flat out they would draw about 95 kW on a 65 kW connection. This is the scenario the demo script runs twice: once with the optimiser off, once with it on.",
+  "day": "2026-09-12",
+  "simStart": "2026-09-12T17:40",
+  "site": {
+    "id": "site-riverside",
+    "name": "Riverside Office Car Park",
+    "timezone": "Europe/London",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "regionCode": "C",
+    "gridConnectionKw": 65,
+    "demandChargePerKwMonth": 12,
+    "currency": "GBP",
+    "defaultMode": "balanced",
+    "baseLoadKw": [
+      10,
+      9,
+      9,
+      9,
+      9,
+      10,
+      14,
+      20,
+      26,
+      29,
+      31,
+      32,
+      30,
+      31,
+      31,
+      29,
+      25,
+      19,
+      15,
+      13,
+      12,
+      11,
+      10,
+      10
+    ]
+  },
+  "chargers": [
+    {
+      "id": "CP-01",
+      "ocppIdentity": "CP-01",
+      "label": "Bay 1",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-02",
+      "ocppIdentity": "CP-02",
+      "label": "Bay 2",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-03",
+      "ocppIdentity": "CP-03",
+      "label": "Bay 3",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-04",
+      "ocppIdentity": "CP-04",
+      "label": "Bay 4",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-05",
+      "ocppIdentity": "CP-05",
+      "label": "Bay 5",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-06",
+      "ocppIdentity": "CP-06",
+      "label": "Bay 6",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-07",
+      "ocppIdentity": "CP-07",
+      "label": "Bay 7",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-08",
+      "ocppIdentity": "CP-08",
+      "label": "Bay 8",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-09",
+      "ocppIdentity": "CP-09",
+      "label": "Bay 9 (visitor)",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "CP-10",
+      "ocppIdentity": "CP-10",
+      "label": "Bay 10 (visitor)",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    }
+  ],
+  "staff": [
+    {
+      "id": "ops-priya",
+      "displayName": "Priya Raman",
+      "role": "operator"
+    },
+    {
+      "id": "grid-ops",
+      "displayName": "Regional Grid Control",
+      "role": "grid_operator"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv-kira",
+      "displayName": "Kira Novak",
+      "idTag": "TAG-KIRA",
+      "defaultMode": "greenest",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 45
+    },
+    {
+      "id": "drv-liam",
+      "displayName": "Liam O'Brien",
+      "idTag": "TAG-LIAM",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 35
+    },
+    {
+      "id": "drv-maya",
+      "displayName": "Maya Singh",
+      "idTag": "TAG-MAYA",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 50
+    },
+    {
+      "id": "drv-noah",
+      "displayName": "Noah Schmidt",
+      "idTag": "TAG-NOAH",
+      "defaultMode": "greenest",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 40
+    },
+    {
+      "id": "drv-amara",
+      "displayName": "Amara Okafor",
+      "idTag": "TAG-AMARA",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 30
+    },
+    {
+      "id": "drv-ben",
+      "displayName": "Ben Carter",
+      "idTag": "TAG-BEN",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 48
+    },
+    {
+      "id": "drv-chloe",
+      "displayName": "Chloe Nguyen",
+      "idTag": "TAG-CHLOE",
+      "defaultMode": "greenest",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 42
+    },
+    {
+      "id": "drv-dev",
+      "displayName": "Dev Patel",
+      "idTag": "TAG-DEV",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 13,
+      "defaultEnergyKwh": 38
+    },
+    {
+      "id": "drv-guest",
+      "displayName": "You",
+      "idTag": "TAG-GUEST",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 12,
+      "defaultEnergyKwh": 30
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "veh-kira",
+      "driverId": "drv-kira",
+      "label": "Skoda Enyaq iV 80",
+      "batteryKwh": 77,
+      "maxChargeKw": 11
+    },
+    {
+      "id": "veh-liam",
+      "driverId": "drv-liam",
+      "label": "Hyundai Kona Electric",
+      "batteryKwh": 64,
+      "maxChargeKw": 7.4
+    },
+    {
+      "id": "veh-maya",
+      "driverId": "drv-maya",
+      "label": "Tesla Model Y",
+      "batteryKwh": 75,
+      "maxChargeKw": 11
+    },
+    {
+      "id": "veh-noah",
+      "driverId": "drv-noah",
+      "label": "Cupra Born",
+      "batteryKwh": 58,
+      "maxChargeKw": 11
+    },
+    {
+      "id": "veh-amara",
+      "driverId": "drv-amara",
+      "label": "Nissan Leaf 40",
+      "batteryKwh": 40,
+      "maxChargeKw": 6.6
+    },
+    {
+      "id": "veh-ben",
+      "driverId": "drv-ben",
+      "label": "VW ID.3 Pro",
+      "batteryKwh": 58,
+      "maxChargeKw": 11
+    },
+    {
+      "id": "veh-chloe",
+      "driverId": "drv-chloe",
+      "label": "Tesla Model 3",
+      "batteryKwh": 60,
+      "maxChargeKw": 11
+    },
+    {
+      "id": "veh-dev",
+      "driverId": "drv-dev",
+      "label": "Kia Niro EV",
+      "batteryKwh": 64,
+      "maxChargeKw": 7.4
+    },
+    {
+      "id": "veh-guest",
+      "driverId": "drv-guest",
+      "label": "Your car",
+      "batteryKwh": 64,
+      "maxChargeKw": 11
+    }
+  ],
+  "arrivals": [
+    {
+      "id": "arr-kira",
+      "chargerId": "CP-01",
+      "driverId": "drv-kira",
+      "vehicleId": "veh-kira",
+      "via": "app",
+      "arriveAt": "2026-09-12T17:52",
+      "departAt": "2026-09-13T07:30",
+      "deadlineAt": "2026-09-13T07:00",
+      "energyKwh": 45,
+      "startSoc": 0.25,
+      "mode": "greenest"
+    },
+    {
+      "id": "arr-liam",
+      "chargerId": "CP-02",
+      "driverId": "drv-liam",
+      "vehicleId": "veh-liam",
+      "via": "app",
+      "arriveAt": "2026-09-12T17:56",
+      "departAt": "2026-09-13T07:20",
+      "deadlineAt": "2026-09-13T07:00",
+      "energyKwh": 35,
+      "startSoc": 0.3,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-maya",
+      "chargerId": "CP-03",
+      "driverId": "drv-maya",
+      "vehicleId": "veh-maya",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:01",
+      "departAt": "2026-09-13T08:00",
+      "deadlineAt": "2026-09-13T07:30",
+      "energyKwh": 50,
+      "startSoc": 0.2,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-noah",
+      "chargerId": "CP-04",
+      "driverId": "drv-noah",
+      "vehicleId": "veh-noah",
+      "via": "rfid",
+      "arriveAt": "2026-09-12T18:04",
+      "departAt": "2026-09-13T07:45",
+      "deadlineAt": "2026-09-13T07:15",
+      "energyKwh": 40,
+      "startSoc": 0.3,
+      "mode": "greenest",
+      "note": "Walk-up tap with no app: the server falls back to this driver's defaults."
+    },
+    {
+      "id": "arr-amara",
+      "chargerId": "CP-05",
+      "driverId": "drv-amara",
+      "vehicleId": "veh-amara",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:08",
+      "departAt": "2026-09-13T07:40",
+      "deadlineAt": "2026-09-13T07:00",
+      "energyKwh": 30,
+      "startSoc": 0.2,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-ben",
+      "chargerId": "CP-06",
+      "driverId": "drv-ben",
+      "vehicleId": "veh-ben",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:12",
+      "departAt": "2026-09-13T07:50",
+      "deadlineAt": "2026-09-13T07:20",
+      "energyKwh": 48,
+      "startSoc": 0.15,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-chloe",
+      "chargerId": "CP-07",
+      "driverId": "drv-chloe",
+      "vehicleId": "veh-chloe",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:16",
+      "departAt": "2026-09-13T07:35",
+      "deadlineAt": "2026-09-13T07:05",
+      "energyKwh": 42,
+      "startSoc": 0.25,
+      "mode": "greenest"
+    },
+    {
+      "id": "arr-dev",
+      "chargerId": "CP-08",
+      "driverId": "drv-dev",
+      "vehicleId": "veh-dev",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:20",
+      "departAt": "2026-09-13T07:55",
+      "deadlineAt": "2026-09-13T07:25",
+      "energyKwh": 38,
+      "startSoc": 0.35,
+      "mode": "balanced"
+    }
+  ]
+}

@@ -3,22 +3,24 @@
 import { clockTime, countdown, kw, modeLabel } from '../lib/format';
 import type { Session } from '../lib/types';
 
-interface SessionTableProps {
+/** Active and pending sessions in deadline order, with the ones at risk called out. */
+export function SessionsTable({
+  sessions,
+  nowMs,
+  timezone,
+}: {
   readonly sessions: Session[];
   readonly nowMs: number;
-}
-
-export function SessionTable({ sessions, nowMs }: SessionTableProps) {
+  readonly timezone: string;
+}) {
   const rows = [...sessions]
     .filter((session) => session.status === 'active' || session.status === 'pending')
     .sort((a, b) => a.deadlineMs - b.deadlineMs);
 
-  if (rows.length === 0) {
-    return <p className="empty">Nothing plugged in right now.</p>;
-  }
+  if (rows.length === 0) return <p className="empty">Nothing plugged in right now.</p>;
 
   return (
-    <table className="sessions">
+    <table className="data">
       <thead>
         <tr>
           <th>driver</th>
@@ -39,11 +41,15 @@ export function SessionTable({ sessions, nowMs }: SessionTableProps) {
             <tr key={session.id}>
               <td>
                 {session.driverName ?? session.idTag}
-                {session.source === 'rfid' && <span className="pill" style={{ marginLeft: 6 }}>rfid</span>}
+                {session.source === 'rfid' && (
+                  <span className="pill" style={{ marginLeft: 6 }}>
+                    rfid
+                  </span>
+                )}
               </td>
               <td>{session.chargerId}</td>
               <td>
-                <span className={`pill mode-${session.mode}`}>{modeLabel[session.mode] ?? session.mode}</span>
+                <span className={`pill ${session.mode}`}>{modeLabel[session.mode] ?? session.mode}</span>
               </td>
               <td className="num">{kw(session.currentPowerKw)}</td>
               <td className="num">{session.limitKw === null ? '--' : kw(session.limitKw)}</td>
@@ -51,11 +57,11 @@ export function SessionTable({ sessions, nowMs }: SessionTableProps) {
                 {session.energyDeliveredKwh.toFixed(1)} / {session.energyNeededKwh.toFixed(1)}
               </td>
               <td>
-                <span className="bar">
+                <span className="mini-bar">
                   <i style={{ width: `${progress}%` }} />
                 </span>
               </td>
-              <td className="num">{clockTime(session.deadlineMs)}</td>
+              <td className="num">{clockTime(session.deadlineMs, timezone)}</td>
               <td className="num">
                 {session.deadlineRisk ? <span className="pill risk">at risk</span> : countdown(session.deadlineMs, nowMs)}
               </td>

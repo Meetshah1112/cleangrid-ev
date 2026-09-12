@@ -8,6 +8,7 @@ const site: Site = {
   id: 'site',
   name: 'Riverside',
   timezone: 'Europe/London',
+  country: 'GB',
   lat: 51.5,
   lng: -0.12,
   regionCode: 'C',

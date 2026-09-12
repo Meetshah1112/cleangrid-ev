@@ -7,8 +7,23 @@ import type { Repositories } from '../repo/types';
 /** Loads the scenario file and fills the repositories with the site it describes. */
 
 export async function loadScenarioFile(path: string): Promise<Scenario> {
-  const raw = await readFile(resolve(path), 'utf8');
+  const raw = await readFile(resolve(path.trim()), 'utf8');
   return parseScenario(JSON.parse(raw));
+}
+
+/** SCENARIO may name several files, one per site, separated by commas. */
+export async function loadScenarioFiles(paths: string): Promise<Scenario[]> {
+  const list = paths
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  const scenarios = await Promise.all(list.map(loadScenarioFile));
+  const siteIds = new Set<string>();
+  for (const scenario of scenarios) {
+    if (siteIds.has(scenario.site.id)) throw new Error(`two scenarios describe the same site: ${scenario.site.id}`);
+    siteIds.add(scenario.site.id);
+  }
+  return scenarios;
 }
 
 export async function seedFromScenario(
@@ -22,6 +37,7 @@ export async function seedFromScenario(
     id: site.id,
     name: site.name,
     timezone: site.timezone,
+    country: site.country,
     lat: site.lat,
     lng: site.lng,
     regionCode: site.regionCode,

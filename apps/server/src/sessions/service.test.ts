@@ -166,6 +166,26 @@ describe('SessionService', () => {
     await expect(service.patch(session.id, { deadlineMs: nowMs - 1 })).rejects.toThrow(/future/);
   });
 
+  it('closes a session left open on the connector when a new transaction starts', async () => {
+    const first = await service.startTransaction({
+      chargerId: 'CP-01',
+      connectorId: 1,
+      idTag: 'TAG-AMARA',
+      meterStartWh: 0,
+      tsMs: nowMs,
+    });
+    const second = await service.startTransaction({
+      chargerId: 'CP-01',
+      connectorId: 1,
+      idTag: 'TAG-AMARA',
+      meterStartWh: 0,
+      tsMs: nowMs + 60_000,
+    });
+    expect(second.session.id).not.toBe(first.session.id);
+    expect((await repos.sessions.get(first.session.id))?.status).toBe('aborted');
+    expect((await repos.sessions.listActive('site')).map((s) => s.id)).toEqual([second.session.id]);
+  });
+
   it('announces what happened on the event bus', async () => {
     const seen: string[] = [];
     bus.on('session.created', () => seen.push('created'));

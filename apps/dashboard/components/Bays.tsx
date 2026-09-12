@@ -3,21 +3,26 @@
 import { countdown, kw } from '../lib/format';
 import type { Charger, Session } from '../lib/types';
 
-interface ChargerGridProps {
+/** Operational view of every connector: who is on it, at what power, and how long they have. */
+export function Bays({
+  chargers,
+  sessions,
+  nowMs,
+}: {
   readonly chargers: Charger[];
   readonly sessions: Session[];
   readonly nowMs: number;
-}
-
-export function ChargerGrid({ chargers, sessions, nowMs }: ChargerGridProps) {
-  const activeByCharger = new Map(
+}) {
+  const active = new Map(
     sessions.filter((session) => session.status === 'active').map((session) => [session.chargerId, session]),
   );
 
+  if (chargers.length === 0) return <p className="empty">No chargers at this site.</p>;
+
   return (
-    <div className="chargers">
+    <div className="bays">
       {chargers.map((charger) => {
-        const session = activeByCharger.get(charger.id);
+        const session = active.get(charger.id);
         const state = !charger.online
           ? 'offline'
           : session?.deadlineRisk
@@ -32,22 +37,20 @@ export function ChargerGrid({ chargers, sessions, nowMs }: ChargerGridProps) {
           : 0;
 
         return (
-          <article key={charger.id} className={`charger ${state}`}>
-            <div className="bay">
+          <article key={charger.id} className={`bay ${state}`}>
+            <div className="top">
               <span>{charger.label}</span>
-              <span>{charger.online ? (charger.uncontrolled ? 'uncontrolled' : 'online') : 'offline'}</span>
+              <span>{charger.online ? (charger.uncontrolled ? 'uncontrolled' : `${charger.maxPowerKw} kW`) : 'offline'}</span>
             </div>
-            <div className="driver">{session?.driverName ?? (charger.online ? 'free' : 'no connection')}</div>
-            <div className="power">
+            <div className="who">{session?.driverName ?? (charger.online ? 'free' : 'no connection')}</div>
+            <div className="kw">
               {kw(session?.currentPowerKw ?? 0)}
               <small> kW</small>
-              {session?.limitKw !== null && session?.limitKw !== undefined && (
-                <small> / {kw(session.limitKw)} limit</small>
-              )}
+              {session?.limitKw !== null && session?.limitKw !== undefined && <small> / {kw(session.limitKw)} limit</small>}
             </div>
             {session && (
               <>
-                <span className="bar">
+                <span className="mini-bar" style={{ width: '100%' }}>
                   <i style={{ width: `${progress}%` }} />
                 </span>
                 <div className="foot">

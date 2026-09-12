@@ -20,6 +20,9 @@ import { chargeVehicle, deliveredPowerKw, profileLimitW, type VehicleState } fro
  * only way to prove the plan reaches hardware.
  */
 
+/** The most simulated time one integration step may cover. */
+const MAX_TICK_MS = 15 * 60_000;
+
 export interface ChargePointOptions {
   readonly identity: string;
   readonly url: string;
@@ -30,6 +33,11 @@ export interface ChargePointOptions {
   readonly model?: string;
   readonly log: (message: string, detail?: Record<string, unknown>) => void;
   readonly meterIntervalMs?: number;
+  /**
+   * What to do when the central system asks for a remote start, which is what happens when a
+   * driver confirms in the app. Returning a car means the cable is treated as already plugged in.
+   */
+  readonly onRemoteStart?: (input: { idTag: string; connectorId: number }) => PluggedCar | null;
 }
 
 export interface PluggedCar {
@@ -193,8 +201,13 @@ export class SimulatedChargePoint {
   private tick(nowMs: number): void {
     const transaction = this.transaction;
     if (!transaction) return;
-    const elapsedMs = nowMs - transaction.lastTickMs;
-    if (elapsedMs <= 0) return;
+    // Never integrate more than one metering interval in a single step. If the demo clock is
+    // jumped forward, a real charger would not have delivered those hours unsupervised either.
+    const elapsedMs = Math.min(nowMs - transaction.lastTickMs, MAX_TICK_MS);
+    if (elapsedMs <= 0) {
+      transaction.lastTickMs = nowMs;
+      return;
+    }
 
     // Higher stack level wins: the optimiser's transaction profile overrides the safety default.
     const limitW =
@@ -277,8 +290,23 @@ export class SimulatedChargePoint {
         void this.unplug('Remote');
         return { status: 'Accepted' };
       }
-      case 'RemoteStartTransaction':
-        return { status: 'Rejected' };
+      case 'RemoteStartTransaction': {
+        const parsed = ocppSchemas.remoteStartTransactionSchema.safeParse(payload);
+        if (!parsed.success) throw new OcppCallError('FormationViolation', 'bad RemoteStartTransaction');
+        if (this.transaction || !this.options.onRemoteStart) return { status: 'Rejected' };
+        const car = this.options.onRemoteStart({
+          idTag: parsed.data.idTag,
+          connectorId: parsed.data.connectorId ?? 1,
+        });
+        if (!car) return { status: 'Rejected' };
+        // Answer first, then open the transaction, which is the order a real charge point uses.
+        setTimeout(() => {
+          void this.plugIn(car).catch((error: unknown) =>
+            this.options.log(`remote start failed: ${(error as Error).message}`),
+          );
+        }, 50);
+        return { status: 'Accepted' };
+      }
       case 'Reset':
         this.options.log('reset requested by the central system');
         return { status: 'Accepted' };

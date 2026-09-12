@@ -45,7 +45,7 @@ async function devPrincipal(request: FastifyRequest, ctx: ApiContext): Promise<P
   return {
     id: userId || `dev-${role}`,
     role,
-    siteId: role === 'grid_operator' ? null : ctx.siteId,
+    siteId: role === 'grid_operator' ? null : ctx.defaultSiteId,
     displayName: userId || `dev ${role}`,
   };
 }

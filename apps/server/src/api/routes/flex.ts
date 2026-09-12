@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { ConflictError, NotFoundError } from '../../errors';
 import { requireRole, requireSite } from '../auth';
-import type { ApiContext } from '../context';
+import { runtimeFor, type ApiContext } from '../context';
 import { ok } from '../app';
 
 /**
@@ -20,7 +20,7 @@ export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext):
         sites.map(async (site) => {
           const sessions = await ctx.repos.sessions.listActive(site.id);
           const chargingKw = sessions.reduce((total, session) => total + session.currentPowerKw, 0);
-          const plan = ctx.loop.latestPlan;
+          const plan = ctx.runtimes.get(site.id)?.loop.latestPlan ?? null;
           const baseKw = plan?.baseLoadKw[0] ?? 0;
           return {
             siteId: site.id,
@@ -49,6 +49,9 @@ export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext):
     const site = await ctx.repos.sites.get(body.siteId);
     if (!site) throw new NotFoundError('site', body.siteId);
 
+    // A site under a flexibility contract honours the request automatically; otherwise an
+    // operator has to accept it, and the request sits in their queue until they do.
+    const automatic = ctx.config.AUTO_ACCEPT_FLEX;
     const event: FlexEvent = {
       id: randomUUID(),
       siteId: body.siteId,
@@ -57,9 +60,9 @@ export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext):
       endsMs: Date.parse(body.endsAt),
       capKw: body.capKw,
       reason: body.reason ?? null,
-      status: 'requested',
+      status: automatic ? 'accepted' : 'requested',
       createdMs: ctx.clock.now(),
-      respondedMs: null,
+      respondedMs: automatic ? ctx.clock.now() : null,
     };
     const saved = await ctx.repos.flex.save(event);
     ctx.bus.emit('flex.updated', { flex: saved });
@@ -88,9 +91,11 @@ export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext):
     const body = flexResponseSchema.parse(request.body);
     const event = await ctx.repos.flex.get(eventId);
     if (!event || event.siteId !== siteId) throw new NotFoundError('flex event', eventId);
-    if (event.status !== 'requested') {
+    // An operator can still pull out of a request the site accepted automatically, until it ends.
+    if (event.status !== 'requested' && event.status !== 'accepted') {
       throw new ConflictError('already_answered', `this request is already ${event.status}`);
     }
+    if (event.endsMs <= ctx.clock.now()) throw new ConflictError('already_over', 'this window has already passed');
     const updated = await ctx.repos.flex.update(eventId, {
       status: body.accept ? 'accepted' : 'declined',
       respondedMs: ctx.clock.now(),

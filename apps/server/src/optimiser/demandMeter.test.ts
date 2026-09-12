@@ -9,6 +9,7 @@ const site: Site = {
   id: 'site',
   name: 'Test',
   timezone: 'UTC',
+  country: 'GB',
   lat: 51.5,
   lng: -0.12,
   regionCode: 'C',

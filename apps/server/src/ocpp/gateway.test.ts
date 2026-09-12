@@ -64,6 +64,7 @@ async function startHarness(): Promise<Harness> {
     id: 'site-riverside',
     name: 'Riverside',
     timezone: 'Europe/London',
+  country: 'GB',
     lat: 51.5,
     lng: -0.12,
     regionCode: 'C',

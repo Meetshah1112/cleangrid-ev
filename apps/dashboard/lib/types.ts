@@ -7,6 +7,18 @@
 export type ChargingMode = 'cheapest' | 'greenest' | 'fastest' | 'balanced';
 export type SessionStatus = 'pending' | 'active' | 'complete' | 'aborted';
 
+export interface Site {
+  id: string;
+  name: string;
+  timezone: string;
+  country: string;
+  currency: string;
+  gridConnectionKw: number;
+  demandChargePerKwMonth: number;
+  defaultMode: ChargingMode;
+  regionCode: string;
+}
+
 export interface Overview {
   siteId: string;
   nowMs: number;
@@ -140,6 +152,33 @@ export interface Dispatch {
   error: string | null;
 }
 
+export interface DemandInterval {
+  startMs: number;
+  chargingKw: number;
+  baseLoadKw: number;
+  totalKw: number;
+}
+
+export interface Demand {
+  fromMs: number;
+  toMs: number;
+  stepMinutes: number;
+  gridConnectionKw: number;
+  peakKw: number;
+  intervals: DemandInterval[];
+}
+
+export interface GridSite {
+  siteId: string;
+  name: string;
+  gridConnectionKw: number;
+  currentDrawKw: number;
+  chargingKw: number;
+  plannedPeakKw: number | null;
+  flexibleKw: number;
+  carsPluggedIn: number;
+}
+
 export interface Impact {
   sessions: number;
   verifiedSessions: number;
@@ -154,6 +193,7 @@ export interface Impact {
   avgRenewableShare: number;
   peakKw: number;
   currency: string;
+  gridConnectionKw?: number;
 }
 
 export type SiteEvent =

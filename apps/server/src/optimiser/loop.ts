@@ -47,14 +47,19 @@ export class OptimiserLoop {
 
   start(): void {
     const { bus } = this.deps;
-    const trigger = (reason: string) => () => this.request(reason);
+    // Each site has its own loop, so only react to what happened at this one.
+    const mine =
+      <T>(siteOf: (payload: T) => string, reason: string) =>
+      (payload: T): void => {
+        if (siteOf(payload) === this.deps.siteId) this.request(reason);
+      };
     this.unsubscribe = [
-      bus.on('session.created', trigger('session_created')),
-      bus.on('session.updated', trigger('session_updated')),
-      bus.on('session.ended', trigger('session_ended')),
-      bus.on('charger.connected', trigger('charger_connected')),
-      bus.on('charger.disconnected', trigger('charger_disconnected')),
-      bus.on('flex.updated', trigger('flex_updated')),
+      bus.on('session.created', mine(({ session }) => session.siteId, 'session_created')),
+      bus.on('session.updated', mine(({ session }) => session.siteId, 'session_updated')),
+      bus.on('session.ended', mine(({ session }) => session.siteId, 'session_ended')),
+      bus.on('charger.connected', mine(({ charger }) => charger.siteId, 'charger_connected')),
+      bus.on('charger.disconnected', mine(({ charger }) => charger.siteId, 'charger_disconnected')),
+      bus.on('flex.updated', mine(({ flex }) => flex.siteId, 'flex_updated')),
     ];
     // Checked against the simulated clock, so a sped-up demo re-solves at the same cadence.
     this.timer = setInterval(() => {
@@ -89,6 +94,8 @@ export class OptimiserLoop {
   }
 
   async solve(trigger: string): Promise<PlanRecord | null> {
+    // Baseline mode: the optimiser watches and measures but never intervenes.
+    if (this.deps.config.OPTIMISER === 'off') return null;
     if (this.solving) {
       this.queuedTrigger = trigger;
       return null;

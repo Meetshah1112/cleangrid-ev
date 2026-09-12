@@ -22,6 +22,8 @@ export interface Site {
   readonly id: string;
   readonly name: string;
   readonly timezone: string;
+  /** ISO country code; decides which grid data sources can be used. */
+  readonly country: string;
   readonly lat: number;
   readonly lng: number;
   /** Distribution region letter used for regional tariffs (Octopus "C" is London). */

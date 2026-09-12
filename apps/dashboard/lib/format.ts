@@ -1,15 +1,18 @@
-/** Formatting and the one carbon colour scale the whole dashboard reads by. */
+/** Formatting, and the one carbon colour scale the whole console reads by. */
 
-export const TIMEZONE = process.env.NEXT_PUBLIC_SITE_TZ ?? 'Europe/London';
+export const DEFAULT_TZ = process.env.NEXT_PUBLIC_SITE_TZ ?? 'Europe/London';
 
-const timeFormat = new Intl.DateTimeFormat('en-GB', {
-  timeZone: TIMEZONE,
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
+const formatters = new Map<string, Intl.DateTimeFormat>();
 
-export const clockTime = (ms: number): string => timeFormat.format(new Date(ms));
+function timeFormat(timeZone: string): Intl.DateTimeFormat {
+  const cached = formatters.get(timeZone);
+  if (cached) return cached;
+  const created = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
+  formatters.set(timeZone, created);
+  return created;
+}
+
+export const clockTime = (ms: number, timeZone: string = DEFAULT_TZ): string => timeFormat(timeZone).format(new Date(ms));
 
 export const kw = (value: number | null | undefined, digits = 1): string =>
   value === null || value === undefined ? '--' : value.toFixed(digits);
@@ -17,7 +20,11 @@ export const kw = (value: number | null | undefined, digits = 1): string =>
 export const money = (value: number | null | undefined, currency = 'GBP'): string =>
   value === null || value === undefined
     ? '--'
-    : new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+    : new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-GB', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: value >= 1000 ? 0 : 2,
+      }).format(value);
 
 export const percent = (share: number | null | undefined): string =>
   share === null || share === undefined ? '--' : `${Math.round(share * 100)}%`;
@@ -31,16 +38,16 @@ export function countdown(toMs: number, nowMs: number): string {
 }
 
 /**
- * Carbon intensity to colour, used identically by the chart, the ribbon and the tiles so the
- * same green always means the same thing.
+ * Carbon intensity to colour, used identically by every chart and tile so the same green always
+ * means the same thing.
  */
 export function carbonColor(gPerKwh: number): string {
   const stops: [number, [number, number, number]][] = [
-    [120, [52, 199, 123]],
-    [250, [126, 200, 80]],
-    [400, [232, 181, 58]],
-    [550, [231, 124, 58]],
-    [750, [222, 74, 74]],
+    [120, [31, 138, 92]],
+    [250, [106, 168, 79]],
+    [400, [201, 138, 26]],
+    [550, [199, 106, 45]],
+    [750, [192, 57, 43]],
   ];
   const first = stops[0] as [number, [number, number, number]];
   const last = stops[stops.length - 1] as [number, [number, number, number]];

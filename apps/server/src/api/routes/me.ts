@@ -2,7 +2,7 @@ import { createVehicleSchema, type Vehicle } from '@cleangrid/shared';
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { requireRole } from '../auth';
-import type { ApiContext } from '../context';
+import { runtimeForSession, type ApiContext } from '../context';
 import { ok } from '../app';
 
 /** Who am I, what do I drive, and what have I charged. */
@@ -61,10 +61,13 @@ export async function registerMeRoutes(app: FastifyInstance, ctx: ApiContext): P
     const sessions = await ctx.repos.sessions.listByDriver(request.principal.id, 10);
     const current = sessions.find((session) => session.status === 'active' || session.status === 'pending') ?? null;
     if (!current) return ok(null);
-    const plan = ctx.loop.latestPlan;
+    const plan = runtimeForSession(ctx, current.siteId)?.loop.latestPlan ?? null;
+    // State of charge is reported by the car, not derived here: null until a meter value carries it.
+    const lastReading = await ctx.repos.meters.lastBySession(current.id);
     return ok({
       session: current,
       remainingKwh: ctx.sessions.remainingKwh(current),
+      socPercent: lastReading?.soc ?? null,
       plannedKw: plan?.allocationsKw[current.id] ?? null,
       planGrid: plan?.grid ?? null,
     });

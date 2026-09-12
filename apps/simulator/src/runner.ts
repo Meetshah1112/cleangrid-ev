@@ -22,6 +22,8 @@ export interface RunnerOptions {
   readonly timeScale?: number;
   readonly meterIntervalMs?: number;
   readonly onLog?: (line: string) => void;
+  /** Shown in log lines when more than one site is being simulated. */
+  readonly label?: string;
 }
 
 interface ClockSync {
@@ -59,7 +61,8 @@ export class SimulatorRunner {
 
   private log(line: string): void {
     const stamp = this.clock ? formatLocalTime(this.clock.now(), this.options.scenario.site.timezone) : '--:--';
-    (this.options.onLog ?? ((text: string) => console.log(text)))(`[sim ${stamp}] ${line}`);
+    const where = this.options.label ? ` ${this.options.label}` : '';
+    (this.options.onLog ?? ((text: string) => console.log(text)))(`[sim ${stamp}${where}] ${line}`);
   }
 
   async start(): Promise<void> {
@@ -79,6 +82,7 @@ export class SimulatorRunner {
         ...(charger.model === undefined ? {} : { model: charger.model }),
         ...(this.options.meterIntervalMs === undefined ? {} : { meterIntervalMs: this.options.meterIntervalMs }),
         log: (message) => this.log(`${charger.ocppIdentity} ${message}`),
+        onRemoteStart: ({ idTag, connectorId }) => this.carFor(idTag, connectorId, charger.id),
       });
       await point.connect();
       this.points.set(charger.id, point);
@@ -123,6 +127,31 @@ export class SimulatorRunner {
       await sleep(TICK_MS);
     }
     this.log('every car has come and gone; scenario complete');
+  }
+
+  /**
+   * A driver confirmed in the app, so a car turns up at that bay. Their own vehicle if the
+   * scenario knows it, otherwise a plausible one, arriving with a fairly empty battery.
+   */
+  private carFor(idTag: string, connectorId: number, chargerId: string): {
+    idTag: string;
+    connectorId: number;
+    vehicle: { batteryKwh: number; maxChargeKw: number; soc: number };
+  } | null {
+    const driver = this.options.scenario.drivers.find((entry) => entry.idTag === idTag);
+    const vehicle = driver ? this.options.scenario.vehicles.find((entry) => entry.driverId === driver.id) : undefined;
+    const spec = vehicle ?? { batteryKwh: 60, maxChargeKw: 11 };
+    // Use the state of charge the scenario gave this driver, so the battery has room for what
+    // they asked for; a walk-up guest turns up around a third full.
+    const scheduled = driver
+      ? this.options.scenario.arrivals.find((arrival) => arrival.driverId === driver.id)
+      : undefined;
+    this.log(`${chargerId} ${driver?.displayName ?? idTag} plugs in from the app`);
+    return {
+      idTag,
+      connectorId,
+      vehicle: { batteryKwh: spec.batteryKwh, maxChargeKw: spec.maxChargeKw, soc: scheduled?.startSoc ?? 0.3 },
+    };
   }
 
   private async resync(): Promise<void> {
@@ -179,6 +208,13 @@ export class SimulatorRunner {
       this.log(`${who} taps an RFID card on ${arrival.chargerId} with no app; server defaults apply`);
     }
 
+    // Declaring intent may have made the server ask the charger to start, in which case the car
+    // is already on the cable and plugging it in again would open a second transaction.
+    if (arrival.via === 'app' && (await this.waitForCharging(point))) {
+      this.log(`${who} is already charging on ${arrival.chargerId}, started from the app`);
+      return;
+    }
+
     const transactionId = await point.plugIn({
       idTag: driver?.idTag ?? arrival.driverId,
       connectorId: arrival.connectorId,
@@ -190,6 +226,15 @@ export class SimulatorRunner {
       return;
     }
     void nowMs;
+  }
+
+  /** A remote start is answered before the transaction opens, so give it a moment to appear. */
+  private async waitForCharging(point: SimulatedChargePoint, attempts = 8): Promise<boolean> {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if (point.isCharging) return true;
+      await sleep(50);
+    }
+    return point.isCharging;
   }
 
   private async depart(arrival: ResolvedArrival): Promise<void> {
