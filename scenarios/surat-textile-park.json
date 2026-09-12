@@ -1,0 +1,309 @@
+{
+  "name": "surat-textile-park",
+  "description": "A logistics yard beside the textile park, running three shifts. Arrivals land across the whole day rather than in one peak, which is the case that shows peak-shaving working: the yard's own load already sits near two thirds of the connection, so without coordination a shift changeover would push the site over it.",
+  "day": "2026-09-12",
+  "simStart": "2026-09-12T06:00",
+  "site": {
+    "id": "site-surat-textile-park",
+    "name": "Surat Textile Park Yard",
+    "timezone": "Asia/Kolkata",
+    "country": "IN",
+    "lat": 21.1702,
+    "lng": 72.8311,
+    "regionCode": "GJ",
+    "gridConnectionKw": 180,
+    "demandChargePerKwMonth": 385,
+    "currency": "INR",
+    "defaultMode": "balanced",
+    "baseLoadKw": [
+      54,
+      52,
+      50,
+      50,
+      52,
+      58,
+      72,
+      88,
+      98,
+      104,
+      108,
+      110,
+      106,
+      108,
+      110,
+      106,
+      98,
+      90,
+      84,
+      78,
+      72,
+      66,
+      60,
+      56
+    ]
+  },
+  "chargers": [
+    {
+      "id": "SR-01",
+      "ocppIdentity": "SR-01",
+      "label": "Bay 1",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SR-02",
+      "ocppIdentity": "SR-02",
+      "label": "Bay 2",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SR-03",
+      "ocppIdentity": "SR-03",
+      "label": "Bay 3",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SR-04",
+      "ocppIdentity": "SR-04",
+      "label": "Bay 4",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SR-05",
+      "ocppIdentity": "SR-05",
+      "label": "Bay 5",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SR-06",
+      "ocppIdentity": "SR-06",
+      "label": "Bay 6",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "SF-01",
+      "ocppIdentity": "SF-01",
+      "label": "Fast bay 1",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    },
+    {
+      "id": "SF-02",
+      "ocppIdentity": "SF-02",
+      "label": "Fast bay 2",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    },
+    {
+      "id": "SF-03",
+      "ocppIdentity": "SF-03",
+      "label": "Fast bay 3",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    }
+  ],
+  "staff": [
+    {
+      "id": "ops-tejas",
+      "displayName": "Tejas Kanani",
+      "role": "operator"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv-mitesh",
+      "displayName": "Mitesh Savani",
+      "idTag": "TAG-MITESH",
+      "defaultMode": "greenest",
+      "defaultDwellHours": 8.2,
+      "defaultEnergyKwh": 26
+    },
+    {
+      "id": "drv-pooja",
+      "displayName": "Pooja Hirpara",
+      "idTag": "TAG-POOJA",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 8.3,
+      "defaultEnergyKwh": 33
+    },
+    {
+      "id": "drv-chirag",
+      "displayName": "Chirag Ramani",
+      "idTag": "TAG-CHIRAG",
+      "defaultMode": "greenest",
+      "defaultDwellHours": 8.8,
+      "defaultEnergyKwh": 29
+    },
+    {
+      "id": "drv-bhumi",
+      "displayName": "Bhumi Ghetia",
+      "idTag": "TAG-BHUMI",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 1.5,
+      "defaultEnergyKwh": 21
+    },
+    {
+      "id": "drv-raj",
+      "displayName": "Raj Dholakia",
+      "idTag": "TAG-RAJ",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 8.7,
+      "defaultEnergyKwh": 38
+    },
+    {
+      "id": "drv-vidhi",
+      "displayName": "Vidhi Kacha",
+      "idTag": "TAG-VIDHI",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 8.2,
+      "defaultEnergyKwh": 25
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "veh-mitesh",
+      "driverId": "drv-mitesh",
+      "label": "Tata Nexon EV 45",
+      "batteryKwh": 45.0,
+      "maxChargeKw": 7.2
+    },
+    {
+      "id": "veh-pooja",
+      "driverId": "drv-pooja",
+      "label": "MG ZS EV",
+      "batteryKwh": 50.3,
+      "maxChargeKw": 7.4
+    },
+    {
+      "id": "veh-chirag",
+      "driverId": "drv-chirag",
+      "label": "Mahindra XUV400 EL",
+      "batteryKwh": 39.4,
+      "maxChargeKw": 7.2
+    },
+    {
+      "id": "veh-bhumi",
+      "driverId": "drv-bhumi",
+      "label": "Tata Punch EV LR",
+      "batteryKwh": 35.0,
+      "maxChargeKw": 50.0
+    },
+    {
+      "id": "veh-raj",
+      "driverId": "drv-raj",
+      "label": "BYD Atto 3",
+      "batteryKwh": 60.5,
+      "maxChargeKw": 7.0
+    },
+    {
+      "id": "veh-vidhi",
+      "driverId": "drv-vidhi",
+      "label": "BYD Atto 3",
+      "batteryKwh": 60.5,
+      "maxChargeKw": 7.0
+    }
+  ],
+  "arrivals": [
+    {
+      "id": "arr-mitesh",
+      "chargerId": "SR-01",
+      "driverId": "drv-mitesh",
+      "vehicleId": "veh-mitesh",
+      "via": "app",
+      "arriveAt": "2026-09-12T06:20",
+      "departAt": "2026-09-12T14:30",
+      "deadlineAt": "2026-09-12T14:00",
+      "energyKwh": 26,
+      "startSoc": 0.24,
+      "mode": "greenest"
+    },
+    {
+      "id": "arr-pooja",
+      "chargerId": "SR-02",
+      "driverId": "drv-pooja",
+      "vehicleId": "veh-pooja",
+      "via": "app",
+      "arriveAt": "2026-09-12T07:10",
+      "departAt": "2026-09-12T15:30",
+      "deadlineAt": "2026-09-12T15:00",
+      "energyKwh": 33,
+      "startSoc": 0.16,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-chirag",
+      "chargerId": "SR-03",
+      "driverId": "drv-chirag",
+      "vehicleId": "veh-chirag",
+      "via": "app",
+      "arriveAt": "2026-09-12T13:40",
+      "departAt": "2026-09-12T22:30",
+      "deadlineAt": "2026-09-12T22:00",
+      "energyKwh": 29,
+      "startSoc": 0.2,
+      "mode": "greenest"
+    },
+    {
+      "id": "arr-bhumi",
+      "chargerId": "SF-01",
+      "driverId": "drv-bhumi",
+      "vehicleId": "veh-bhumi",
+      "via": "rfid",
+      "arriveAt": "2026-09-12T14:15",
+      "departAt": "2026-09-12T15:45",
+      "deadlineAt": "2026-09-12T15:30",
+      "energyKwh": 21,
+      "startSoc": 0.33,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-raj",
+      "chargerId": "SR-04",
+      "driverId": "drv-raj",
+      "vehicleId": "veh-raj",
+      "via": "app",
+      "arriveAt": "2026-09-12T21:50",
+      "departAt": "2026-09-13T06:30",
+      "deadlineAt": "2026-09-13T06:00",
+      "energyKwh": 38,
+      "startSoc": 0.14,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-vidhi",
+      "chargerId": "SR-05",
+      "driverId": "drv-vidhi",
+      "vehicleId": "veh-vidhi",
+      "via": "app",
+      "arriveAt": "2026-09-12T22:30",
+      "departAt": "2026-09-13T06:45",
+      "deadlineAt": "2026-09-13T06:15",
+      "energyKwh": 25,
+      "startSoc": 0.27,
+      "mode": "balanced"
+    }
+  ]
+}

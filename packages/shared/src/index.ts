@@ -11,3 +11,4 @@ export * from './events';
 export * from './api';
 export * from './schemas';
 export * from './scenario';
+export * from './scenarios';

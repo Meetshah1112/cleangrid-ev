@@ -1,0 +1,254 @@
+{
+  "name": "vadodara-alkapuri-depot",
+  "description": "A last-mile delivery depot. Vans come off the road through the evening and must be full before the 06:00 dispatch. All the slack is overnight, when Gujarat's grid is at its cheapest under the time-of-day tariff but also at its dirtiest, so cost and carbon pull in opposite directions here - the one site where the mode a driver picks changes the answer most.",
+  "day": "2026-09-12",
+  "simStart": "2026-09-12T19:00",
+  "site": {
+    "id": "site-vadodara-alkapuri-depot",
+    "name": "Vadodara Alkapuri Depot",
+    "timezone": "Asia/Kolkata",
+    "country": "IN",
+    "lat": 22.3072,
+    "lng": 73.1812,
+    "regionCode": "GJ",
+    "gridConnectionKw": 150,
+    "demandChargePerKwMonth": 385,
+    "currency": "INR",
+    "defaultMode": "cheapest",
+    "baseLoadKw": [
+      22,
+      20,
+      19,
+      19,
+      20,
+      26,
+      34,
+      40,
+      44,
+      46,
+      48,
+      50,
+      50,
+      48,
+      46,
+      44,
+      42,
+      40,
+      38,
+      34,
+      30,
+      28,
+      25,
+      23
+    ]
+  },
+  "chargers": [
+    {
+      "id": "VD-01",
+      "ocppIdentity": "VD-01",
+      "label": "Bay 1",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    },
+    {
+      "id": "VD-02",
+      "ocppIdentity": "VD-02",
+      "label": "Bay 2",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    },
+    {
+      "id": "VD-03",
+      "ocppIdentity": "VD-03",
+      "label": "Bay 3",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    },
+    {
+      "id": "VD-04",
+      "ocppIdentity": "VD-04",
+      "label": "Bay 4",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    },
+    {
+      "id": "VD-05",
+      "ocppIdentity": "VD-05",
+      "label": "Bay 5",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    },
+    {
+      "id": "VD-06",
+      "ocppIdentity": "VD-06",
+      "label": "Bay 6",
+      "maxPowerKw": 30,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-30AC"
+    }
+  ],
+  "staff": [
+    {
+      "id": "ops-falguni",
+      "displayName": "Falguni Gohil",
+      "role": "operator"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv-jaydev",
+      "displayName": "Jaydev Parmar",
+      "idTag": "TAG-JAYDEV",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 11.2,
+      "defaultEnergyKwh": 34
+    },
+    {
+      "id": "drv-hetal",
+      "displayName": "Hetal Makwana",
+      "idTag": "TAG-HETAL",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 10.7,
+      "defaultEnergyKwh": 28
+    },
+    {
+      "id": "drv-bhavin",
+      "displayName": "Bhavin Dave",
+      "idTag": "TAG-BHAVIN",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 10.3,
+      "defaultEnergyKwh": 40
+    },
+    {
+      "id": "drv-krupa",
+      "displayName": "Krupa Thakkar",
+      "idTag": "TAG-KRUPA",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 9.5,
+      "defaultEnergyKwh": 22
+    },
+    {
+      "id": "drv-nirav",
+      "displayName": "Nirav Chavda",
+      "idTag": "TAG-NIRAV",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 9.3,
+      "defaultEnergyKwh": 31
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "veh-jaydev",
+      "driverId": "drv-jaydev",
+      "label": "Tata Nexon EV 45",
+      "batteryKwh": 45.0,
+      "maxChargeKw": 7.2
+    },
+    {
+      "id": "veh-hetal",
+      "driverId": "drv-hetal",
+      "label": "MG ZS EV",
+      "batteryKwh": 50.3,
+      "maxChargeKw": 7.4
+    },
+    {
+      "id": "veh-bhavin",
+      "driverId": "drv-bhavin",
+      "label": "BYD Atto 3",
+      "batteryKwh": 60.5,
+      "maxChargeKw": 7.0
+    },
+    {
+      "id": "veh-krupa",
+      "driverId": "drv-krupa",
+      "label": "Tata Punch EV LR",
+      "batteryKwh": 35.0,
+      "maxChargeKw": 7.2
+    },
+    {
+      "id": "veh-nirav",
+      "driverId": "drv-nirav",
+      "label": "BYD Atto 3",
+      "batteryKwh": 60.5,
+      "maxChargeKw": 7.0
+    }
+  ],
+  "arrivals": [
+    {
+      "id": "arr-jaydev",
+      "chargerId": "VD-01",
+      "driverId": "drv-jaydev",
+      "vehicleId": "veh-jaydev",
+      "via": "app",
+      "arriveAt": "2026-09-12T19:15",
+      "departAt": "2026-09-13T06:30",
+      "deadlineAt": "2026-09-13T06:00",
+      "energyKwh": 34,
+      "startSoc": 0.15,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-hetal",
+      "chargerId": "VD-02",
+      "driverId": "drv-hetal",
+      "vehicleId": "veh-hetal",
+      "via": "app",
+      "arriveAt": "2026-09-12T19:50",
+      "departAt": "2026-09-13T06:30",
+      "deadlineAt": "2026-09-13T06:00",
+      "energyKwh": 28,
+      "startSoc": 0.21,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-bhavin",
+      "chargerId": "VD-03",
+      "driverId": "drv-bhavin",
+      "vehicleId": "veh-bhavin",
+      "via": "app",
+      "arriveAt": "2026-09-12T20:25",
+      "departAt": "2026-09-13T06:45",
+      "deadlineAt": "2026-09-13T06:15",
+      "energyKwh": 40,
+      "startSoc": 0.12,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-krupa",
+      "chargerId": "VD-04",
+      "driverId": "drv-krupa",
+      "vehicleId": "veh-krupa",
+      "via": "app",
+      "arriveAt": "2026-09-12T21:00",
+      "departAt": "2026-09-13T06:30",
+      "deadlineAt": "2026-09-13T06:00",
+      "energyKwh": 22,
+      "startSoc": 0.3,
+      "mode": "cheapest"
+    },
+    {
+      "id": "arr-nirav",
+      "chargerId": "VD-05",
+      "driverId": "drv-nirav",
+      "vehicleId": "veh-nirav",
+      "via": "rfid",
+      "arriveAt": "2026-09-12T21:40",
+      "departAt": "2026-09-13T07:00",
+      "deadlineAt": "2026-09-13T06:30",
+      "energyKwh": 31,
+      "startSoc": 0.19,
+      "mode": "cheapest"
+    }
+  ]
+}

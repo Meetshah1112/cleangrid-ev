@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Command } from 'commander';
-import { localDateOf, parseScenario, rebaseScenario, type Scenario } from './depsRunner';
+import { DEFAULT_SCENARIOS, localDateOf, parseScenario, rebaseScenario, type Scenario } from './depsRunner';
 import { SimulatorRunner } from './runner';
 
 /** Charger simulator: stands in for hardware that speaks OCPP 1.6J, at one site or several. */
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     .description('Simulated OCPP 1.6J charge points replaying one or more scenarios')
     .option('--url <url>', 'OCPP WebSocket base URL', 'ws://127.0.0.1:8080/ocpp')
     .option('--api <url>', 'REST base URL', 'http://127.0.0.1:8080')
-    .option('--scenario <paths>', 'scenario files, comma separated for several sites', './scenarios/day-one.json')
+    .option('--scenario <paths>', 'scenario files, comma separated for several sites', DEFAULT_SCENARIOS)
     .option('--time-scale <n>', 'override the server time scale')
     .option('--rebase <day>', 'move the scenarios to another day (YYYY-MM-DD or "today")')
     .option('--meter-interval <minutes>', 'simulated minutes between meter values', '1')

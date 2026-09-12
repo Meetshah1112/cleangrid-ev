@@ -26,6 +26,7 @@ const EMPTY_MIRROR = {
   failed: 0,
   dropped: 0,
   degraded: false,
+  complete: true,
   lastError: null,
 } as const;
 
@@ -70,11 +71,17 @@ async function main(): Promise<void> {
   const sessions = new SessionService({ repos, bus, clock, logger });
   const gateway = new OcppGateway({ repos, bus, clock, logger, sessions, safetyProfiles: config.OPTIMISER === 'on' });
 
-  const live = new LiveForecastProvider({ logger });
+  const live = new LiveForecastProvider({
+    logger,
+    ...(config.ELECTRICITY_MAPS_TOKEN ? { electricityMapsToken: config.ELECTRICITY_MAPS_TOKEN } : {}),
+    ...(config.ELECTRICITY_MAPS_ZONE ? { electricityMapsZone: config.ELECTRICITY_MAPS_ZONE } : {}),
+  });
   const synthetic = new SyntheticForecastProvider();
   const forecast = new ForecastService({
-    // Live carbon and price feeds exist for Great Britain; elsewhere the forecast is modelled.
-    provider: (site: Site) => (config.FORECAST === 'live' && site.country === 'GB' ? live : synthetic),
+    // Every site gets the live provider. It decides per country how much of the forecast is
+    // measured: Britain has free carbon and price feeds, everywhere gets live weather, and a
+    // configured Electricity Maps token adds measured carbon for the rest.
+    provider: () => (config.FORECAST === 'live' ? live : synthetic),
     fallback: synthetic,
     clock,
     bus,

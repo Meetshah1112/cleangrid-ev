@@ -1,0 +1,346 @@
+{
+  "name": "ahmedabad-ashram-road",
+  "description": "A retail plaza on Ashram Road. Shoppers stay ninety minutes to three hours, so the DC bays are the only way most of them finish - and four 60 kW bays at once would take the whole connection on their own. This is the hard case: very little slack, and a limit the optimiser has to share out rather than plan around.",
+  "day": "2026-09-12",
+  "simStart": "2026-09-12T11:00",
+  "site": {
+    "id": "site-ahmedabad-ashram-road",
+    "name": "Ahmedabad Ashram Road Plaza",
+    "timezone": "Asia/Kolkata",
+    "country": "IN",
+    "lat": 23.0225,
+    "lng": 72.5714,
+    "regionCode": "GJ",
+    "gridConnectionKw": 200,
+    "demandChargePerKwMonth": 385,
+    "currency": "INR",
+    "defaultMode": "fastest",
+    "baseLoadKw": [
+      28,
+      24,
+      22,
+      20,
+      20,
+      24,
+      34,
+      48,
+      66,
+      84,
+      96,
+      104,
+      108,
+      112,
+      116,
+      118,
+      120,
+      118,
+      110,
+      96,
+      78,
+      58,
+      42,
+      33
+    ]
+  },
+  "chargers": [
+    {
+      "id": "AH-01",
+      "ocppIdentity": "AH-01",
+      "label": "Bay 1",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AH-02",
+      "ocppIdentity": "AH-02",
+      "label": "Bay 2",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AH-03",
+      "ocppIdentity": "AH-03",
+      "label": "Bay 3",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AH-04",
+      "ocppIdentity": "AH-04",
+      "label": "Bay 4",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AH-05",
+      "ocppIdentity": "AH-05",
+      "label": "Bay 5",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AH-06",
+      "ocppIdentity": "AH-06",
+      "label": "Bay 6",
+      "maxPowerKw": 22,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-22AC"
+    },
+    {
+      "id": "AF-01",
+      "ocppIdentity": "AF-01",
+      "label": "Fast bay 1",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    },
+    {
+      "id": "AF-02",
+      "ocppIdentity": "AF-02",
+      "label": "Fast bay 2",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    },
+    {
+      "id": "AF-03",
+      "ocppIdentity": "AF-03",
+      "label": "Fast bay 3",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    },
+    {
+      "id": "AF-04",
+      "ocppIdentity": "AF-04",
+      "label": "Fast bay 4",
+      "maxPowerKw": 60,
+      "minPowerKw": 1.4,
+      "vendor": "CleanGrid",
+      "model": "Sim-60DC"
+    }
+  ],
+  "staff": [
+    {
+      "id": "ops-jignesh",
+      "displayName": "Jignesh Vyas",
+      "role": "operator"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv-aarav",
+      "displayName": "Aarav Shah",
+      "idTag": "TAG-AARAV",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 1.8,
+      "defaultEnergyKwh": 16
+    },
+    {
+      "id": "drv-diya",
+      "displayName": "Diya Chauhan",
+      "idTag": "TAG-DIYA",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 2.2,
+      "defaultEnergyKwh": 20
+    },
+    {
+      "id": "drv-manav",
+      "displayName": "Manav Rathod",
+      "idTag": "TAG-MANAV",
+      "defaultMode": "balanced",
+      "defaultDwellHours": 2.2,
+      "defaultEnergyKwh": 24
+    },
+    {
+      "id": "drv-saanvi",
+      "displayName": "Saanvi Pandya",
+      "idTag": "TAG-SAANVI",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 2.2,
+      "defaultEnergyKwh": 28
+    },
+    {
+      "id": "drv-vivek",
+      "displayName": "Vivek Raval",
+      "idTag": "TAG-VIVEK",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 2.5,
+      "defaultEnergyKwh": 18
+    },
+    {
+      "id": "drv-anaya",
+      "displayName": "Anaya Kapadia",
+      "idTag": "TAG-ANAYA",
+      "defaultMode": "fastest",
+      "defaultDwellHours": 2.5,
+      "defaultEnergyKwh": 15
+    },
+    {
+      "id": "drv-rohan",
+      "displayName": "Rohan Amin",
+      "idTag": "TAG-ROHAN",
+      "defaultMode": "cheapest",
+      "defaultDwellHours": 3.8,
+      "defaultEnergyKwh": 22
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "veh-aarav",
+      "driverId": "drv-aarav",
+      "label": "Tata Nexon EV 45",
+      "batteryKwh": 45.0,
+      "maxChargeKw": 50.0
+    },
+    {
+      "id": "veh-diya",
+      "driverId": "drv-diya",
+      "label": "MG ZS EV",
+      "batteryKwh": 50.3,
+      "maxChargeKw": 76.0
+    },
+    {
+      "id": "veh-manav",
+      "driverId": "drv-manav",
+      "label": "Mahindra XUV400 EL",
+      "batteryKwh": 39.4,
+      "maxChargeKw": 50.0
+    },
+    {
+      "id": "veh-saanvi",
+      "driverId": "drv-saanvi",
+      "label": "Hyundai Kona Electric",
+      "batteryKwh": 39.2,
+      "maxChargeKw": 50.0
+    },
+    {
+      "id": "veh-vivek",
+      "driverId": "drv-vivek",
+      "label": "Hyundai Kona Electric",
+      "batteryKwh": 39.2,
+      "maxChargeKw": 50.0
+    },
+    {
+      "id": "veh-anaya",
+      "driverId": "drv-anaya",
+      "label": "Hyundai Creta Electric",
+      "batteryKwh": 51.4,
+      "maxChargeKw": 11.0
+    },
+    {
+      "id": "veh-rohan",
+      "driverId": "drv-rohan",
+      "label": "Hyundai Creta Electric",
+      "batteryKwh": 51.4,
+      "maxChargeKw": 11.0
+    }
+  ],
+  "arrivals": [
+    {
+      "id": "arr-aarav",
+      "chargerId": "AF-01",
+      "driverId": "drv-aarav",
+      "vehicleId": "veh-aarav",
+      "via": "app",
+      "arriveAt": "2026-09-12T11:10",
+      "departAt": "2026-09-12T13:00",
+      "deadlineAt": "2026-09-12T12:50",
+      "energyKwh": 16,
+      "startSoc": 0.29,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-diya",
+      "chargerId": "AF-02",
+      "driverId": "drv-diya",
+      "vehicleId": "veh-diya",
+      "via": "app",
+      "arriveAt": "2026-09-12T12:30",
+      "departAt": "2026-09-12T14:45",
+      "deadlineAt": "2026-09-12T14:30",
+      "energyKwh": 20,
+      "startSoc": 0.22,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-manav",
+      "chargerId": "AF-03",
+      "driverId": "drv-manav",
+      "vehicleId": "veh-manav",
+      "via": "app",
+      "arriveAt": "2026-09-12T15:20",
+      "departAt": "2026-09-12T17:30",
+      "deadlineAt": "2026-09-12T17:15",
+      "energyKwh": 24,
+      "startSoc": 0.2,
+      "mode": "balanced"
+    },
+    {
+      "id": "arr-saanvi",
+      "chargerId": "AF-04",
+      "driverId": "drv-saanvi",
+      "vehicleId": "veh-saanvi",
+      "via": "app",
+      "arriveAt": "2026-09-12T17:45",
+      "departAt": "2026-09-12T20:00",
+      "deadlineAt": "2026-09-12T19:45",
+      "energyKwh": 28,
+      "startSoc": 0.17,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-vivek",
+      "chargerId": "AF-01",
+      "driverId": "drv-vivek",
+      "vehicleId": "veh-vivek",
+      "via": "app",
+      "arriveAt": "2026-09-12T18:30",
+      "departAt": "2026-09-12T21:00",
+      "deadlineAt": "2026-09-12T20:45",
+      "energyKwh": 18,
+      "startSoc": 0.34,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-anaya",
+      "chargerId": "AH-01",
+      "driverId": "drv-anaya",
+      "vehicleId": "veh-anaya",
+      "via": "rfid",
+      "arriveAt": "2026-09-12T19:00",
+      "departAt": "2026-09-12T21:30",
+      "deadlineAt": "2026-09-12T21:15",
+      "energyKwh": 15,
+      "startSoc": 0.26,
+      "mode": "fastest"
+    },
+    {
+      "id": "arr-rohan",
+      "chargerId": "AH-02",
+      "driverId": "drv-rohan",
+      "vehicleId": "veh-rohan",
+      "via": "app",
+      "arriveAt": "2026-09-12T19:40",
+      "departAt": "2026-09-12T23:30",
+      "deadlineAt": "2026-09-12T23:00",
+      "energyKwh": 22,
+      "startSoc": 0.38,
+      "mode": "cheapest"
+    }
+  ]
+}

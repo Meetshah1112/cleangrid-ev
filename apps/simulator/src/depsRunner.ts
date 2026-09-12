@@ -1,5 +1,6 @@
 /** Shared-package imports used by the runner and CLI. */
 export {
+  DEFAULT_SCENARIOS,
   MS_PER_MINUTE,
   SimClock,
   formatLocalTime,
