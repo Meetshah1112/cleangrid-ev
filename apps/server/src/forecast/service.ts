@@ -16,6 +16,19 @@ import type { Logger } from '../logger';
 import type { Repositories, SignalSample } from '../repo/types';
 import { syntheticForecast } from './synthetic';
 
+/**
+ * The one resolution grid signals are stored at, whatever step the provider answered in.
+ *
+ * A stored signal is only useful if it can be found again, and it is found by its slot. So both
+ * ends have to agree on where a slot starts: write at the provider's own step and read at fifteen
+ * minutes, and half the lookups miss even when everything else is right. Write from an unfloored
+ * clock and every one of them misses, and each fetch inserts a fresh row beside the last instead
+ * of replacing it -- which is how a table meant to hold a few hundred rows a day reached a hundred
+ * and sixty thousand, while every impact report quietly fell back to refetching a window that had
+ * already happened.
+ */
+const SIGNAL_STEP_MINUTES = 15;
+
 /** Where grid signals come from. Live sources implement this too. */
 export interface ForecastProvider {
   readonly name: string;
@@ -71,7 +84,8 @@ export class ForecastService {
     const covers = cached ? cached.snapshot.carbon.startMs <= nowMs : false;
     if (!force && cached && covers && nowMs - cached.fetchedMs < refreshMs) return cached.snapshot;
 
-    const startMs = nowMs - MS_PER_MINUTE * 60;
+    // Floored, so every slot this snapshot produces lands where a later read will look for it.
+    const startMs = floorToStep(nowMs - MS_PER_MINUTE * 60, SIGNAL_STEP_MINUTES);
     let snapshot: ForecastSnapshot;
     try {
       snapshot = await this.providerFor(site).fetch(site, startMs, horizonHours);
@@ -111,7 +125,7 @@ export class ForecastService {
     fromMs: number,
     toMs: number,
   ): Promise<{ carbon: StepSeries; price: StepSeries; renewable: StepSeries; basis: 'actual' | 'forecast' }> {
-    const stepMinutes = 15;
+    const stepMinutes = SIGNAL_STEP_MINUTES;
     const startMs = floorToStep(fromMs, stepMinutes);
     const endMs = Math.max(ceilToStep(toMs, stepMinutes), startMs + stepMinutes * MS_PER_MINUTE);
     const count = Math.round((endMs - startMs) / (stepMinutes * MS_PER_MINUTE));
@@ -147,15 +161,25 @@ export class ForecastService {
 
   private async persist(site: Site, snapshot: ForecastSnapshot): Promise<void> {
     const fetchedMs = this.deps.clock.now();
-    const toSamples = (kind: SignalSample['kind'], series: ForecastSnapshot['carbon'], source: string): SignalSample[] =>
-      series.values.map((value, index) => ({
+    const stepMs = SIGNAL_STEP_MINUTES * MS_PER_MINUTE;
+    /**
+     * Resampled onto the storage grid rather than written at whatever step the provider used, so a
+     * thirty-minute feed and a fifteen-minute one both land on the same slots and both can be read
+     * back by the same lookup.
+     */
+    const toSamples = (kind: SignalSample['kind'], series: ForecastSnapshot['carbon'], source: string): SignalSample[] => {
+      const startMs = floorToStep(series.startMs, SIGNAL_STEP_MINUTES);
+      const spanMs = series.values.length * series.stepMinutes * MS_PER_MINUTE;
+      const count = Math.max(1, Math.round(spanMs / stepMs));
+      return sampleSeries(series, startMs, SIGNAL_STEP_MINUTES, count).map((value, index) => ({
         siteId: site.id,
         kind,
-        slotStartMs: series.startMs + index * series.stepMinutes * MS_PER_MINUTE,
+        slotStartMs: startMs + index * stepMs,
         value,
         source,
         fetchedMs,
       }));
+    };
     await this.deps.repos.signals.upsertMany([
       ...toSamples('carbon', snapshot.carbon, snapshot.sources.carbon),
       ...toSamples('price', snapshot.price, snapshot.sources.price),
