@@ -1,22 +1,31 @@
-/** Formatting. The site decides the time zone and the currency, not the phone. */
+/**
+ * Formatting. The site decides the time zone, the currency and the locale, not the phone — a driver
+ * in Bengaluru should see rupees and a 12-hour clock while one in London sees pounds and 24-hour,
+ * from the same build, because both are reading their own site's numbers.
+ */
+
+const LOCALES: Record<string, string> = { GB: 'en-GB', IN: 'en-IN' };
 
 let timezone = process.env.EXPO_PUBLIC_SITE_TZ ?? 'Europe/London';
 let currency = 'GBP';
+let locale = 'en-GB';
 
-export const setLocale = (nextTimezone: string, nextCurrency: string): void => {
+export const setLocale = (nextTimezone: string, nextCurrency: string, country = 'GB'): void => {
   timezone = nextTimezone;
   currency = nextCurrency;
+  locale = LOCALES[country.toUpperCase()] ?? 'en-GB';
 };
 
 export const getTimezone = (): string => timezone;
 export const getCurrency = (): string => currency;
+export const getLocale = (): string => locale;
 
+/** Hour format is left to the locale: 23:00 in London, 11:00 pm in Bengaluru. */
 export function clockTime(ms: number): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
   }).format(new Date(ms));
 }
 
@@ -28,7 +37,7 @@ export function localHour(ms: number): number {
 }
 
 export const money = (value: number): string =>
-  new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-GB', {
+  new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: value >= 1000 ? 0 : 2,
@@ -36,7 +45,7 @@ export const money = (value: number): string =>
 
 /** A calendar stamp in the site's time zone, split so the day can be stacked over the month. */
 export function dayStamp(ms: number): { day: string; month: string } {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, day: '2-digit', month: 'short' }).formatToParts(
+  const parts = new Intl.DateTimeFormat(locale, { timeZone: timezone, day: '2-digit', month: 'short' }).formatToParts(
     new Date(ms),
   );
   return {
@@ -46,12 +55,15 @@ export function dayStamp(ms: number): { day: string; month: string } {
 }
 
 export const monthLabel = (ms: number): string =>
-  new Intl.DateTimeFormat('en-GB', { timeZone: timezone, month: 'long' }).format(new Date(ms));
+  new Intl.DateTimeFormat(locale, { timeZone: timezone, month: 'long' }).format(new Date(ms));
 
 export const weekday = (ms: number): string =>
-  new Intl.DateTimeFormat('en-GB', { timeZone: timezone, weekday: 'long' }).format(new Date(ms));
+  new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: 'long' }).format(new Date(ms));
 
-/** Is this timestamp in the same calendar month, in the site's time zone, as the reference? */
+/**
+ * Is this timestamp in the same calendar month, in the site's time zone, as the reference?
+ * The locale is pinned here on purpose: this builds a comparison key, never anything displayed.
+ */
 export function sameMonth(ms: number, referenceMs: number): boolean {
   const key = (value: number): string =>
     new Intl.DateTimeFormat('en-GB', { timeZone: timezone, year: 'numeric', month: '2-digit' }).format(new Date(value));

@@ -52,8 +52,9 @@ export function carbonColor(gPerKwh: number): string {
   return `rgb(${last[1].join(',')})`;
 }
 
+/** No currency sign here: the site decides that, and these strings are shown at every site. */
 export const MODE_COPY: Record<string, { title: string; blurb: string; glyph: string }> = {
-  cheapest: { title: 'Cheapest', blurb: 'Favour lowest rates', glyph: '₹' },
+  cheapest: { title: 'Cheapest', blurb: 'Favour lowest rates', glyph: '◎' },
   greenest: { title: 'Greenest', blurb: 'Favour clean hours', glyph: '✦' },
   fastest: { title: 'Fastest', blurb: 'Charge right away', glyph: '⚡' },
   balanced: { title: 'Balanced', blurb: 'Mix cost and carbon', glyph: '◐' },

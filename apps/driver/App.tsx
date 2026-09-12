@@ -57,7 +57,7 @@ export default function App() {
   // The site's clock and currency drive every formatter, so they are applied before anything renders.
   const site = useMemo(() => sites.find((entry) => entry.id === siteId) ?? null, [sites, siteId]);
   useEffect(() => {
-    if (site) setLocale(site.timezone, site.currency);
+    if (site) setLocale(site.timezone, site.currency, site.country);
   }, [site]);
 
   const previousSessionId = useRef<string | null>(null);

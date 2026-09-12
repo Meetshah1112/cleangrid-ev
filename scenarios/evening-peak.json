@@ -7,6 +7,7 @@
     "id": "site-riverside",
     "name": "Riverside Office Car Park",
     "timezone": "Europe/London",
+    "country": "GB",
     "lat": 51.5074,
     "lng": -0.1278,
     "regionCode": "C",
