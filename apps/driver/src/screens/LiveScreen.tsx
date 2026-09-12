@@ -85,7 +85,7 @@ export function LiveScreen({
       <DeepCard style={styles.hero}>
         <Ring
           percent={soc ?? progress}
-          caption={soc === null ? 'of tonight’s need' : 'charged'}
+          caption={soc === null ? 'of what you need' : 'charged'}
         />
       </DeepCard>
 

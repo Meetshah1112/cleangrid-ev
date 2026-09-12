@@ -1259,6 +1259,19 @@ table td,
   font-weight: 600;
   fill: var(--ink);
   text-anchor: middle;
+  /* Names sit over the graticule and, where sites cluster, near each other. A halo of the card
+     colour keeps each one readable without a filled box that would hide the map behind it. */
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* Drawn only when a name had to move clear of the one above, so it still points at its own dot. */
+.netmap-leader {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
 }
 
 .netmap-readout {

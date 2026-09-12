@@ -74,7 +74,7 @@ async function resolveBase(): Promise<string> {
 }
 
 /** Which site the driver is at. Changeable in Profile, because a fleet has more than one. */
-let siteId = process.env.EXPO_PUBLIC_SITE_ID ?? 'site-riverside';
+let siteId = process.env.EXPO_PUBLIC_SITE_ID ?? 'site-gandhinagar-secretariat';
 export const getSiteId = (): string => siteId;
 export const setSiteId = (next: string): void => {
   siteId = next;
@@ -152,6 +152,8 @@ export interface SiteSummary {
   timezone: string;
   currency: string;
   country: string;
+  /** State or grid region. Gujarat and Karnataka are one country and two very different grids. */
+  regionCode: string;
   gridConnectionKw: number;
 }
 
@@ -197,7 +199,7 @@ export class ApiError extends Error {
   }
 }
 
-let driverId = process.env.EXPO_PUBLIC_DRIVER_ID ?? 'drv-amara';
+let driverId = process.env.EXPO_PUBLIC_DRIVER_ID ?? 'drv-harsh';
 
 export const setDriverId = (id: string): void => {
   driverId = id;

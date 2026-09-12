@@ -28,29 +28,61 @@ const SLOT_MINUTES = 15;
 
 export const DEMO_SITES: SiteSummary[] = [
   {
+    id: 'site-gandhinagar-secretariat',
+    name: 'Gandhinagar Secretariat Car Park',
+    timezone: 'Asia/Kolkata',
+    currency: 'INR',
+    country: 'IN',
+    regionCode: 'GJ',
+    gridConnectionKw: 120,
+  },
+  {
+    id: 'site-ahmedabad-ashram-road',
+    name: 'Ahmedabad Ashram Road Plaza',
+    timezone: 'Asia/Kolkata',
+    currency: 'INR',
+    country: 'IN',
+    regionCode: 'GJ',
+    gridConnectionKw: 200,
+  },
+  {
+    id: 'site-vadodara-alkapuri-depot',
+    name: 'Vadodara Alkapuri Depot',
+    timezone: 'Asia/Kolkata',
+    currency: 'INR',
+    country: 'IN',
+    regionCode: 'GJ',
+    gridConnectionKw: 150,
+  },
+  {
+    id: 'site-surat-textile-park',
+    name: 'Surat Textile Park Yard',
+    timezone: 'Asia/Kolkata',
+    currency: 'INR',
+    country: 'IN',
+    regionCode: 'GJ',
+    gridConnectionKw: 180,
+  },
+  {
     id: 'site-riverside',
     name: 'Riverside Office Car Park',
     timezone: 'Europe/London',
     currency: 'GBP',
     country: 'GB',
+    regionCode: 'C',
     gridConnectionKw: 65,
-  },
-  {
-    id: 'site-koramangala',
-    name: 'Koramangala Fleet Hub',
-    timezone: 'Asia/Kolkata',
-    currency: 'INR',
-    country: 'IN',
-    gridConnectionKw: 250,
   },
 ];
 
 export const DEMO_VEHICLE: Vehicle = {
-  id: 'veh-amara',
-  label: 'Nissan Leaf 40',
-  batteryKwh: 40,
-  maxChargeKw: 6.6,
+  id: 'veh-harsh',
+  label: 'Tata Nexon EV 45',
+  batteryKwh: 45,
+  maxChargeKw: 7.2,
 };
+
+/** Every rate below is the car's, so changing the car above changes them all together. */
+const RATE_KW = DEMO_VEHICLE.maxChargeKw;
 
 /** Grid shapes per country, matching apps/server/src/forecast/synthetic.ts. */
 const CURVES: Record<string, { carbon: [number, number][]; price: [number, number][]; renewable: [number, number][] }> = {
@@ -118,7 +150,44 @@ const CURVES: Record<string, { carbon: [number, number][]; price: [number, numbe
       [21, 0.15],
     ],
   },
+  'IN-GJ': {
+    carbon: [
+      [0, 655],
+      [3, 635],
+      [6, 605],
+      [9, 470],
+      [12, 330],
+      [15, 405],
+      [18, 725],
+      [21, 700],
+    ],
+    price: [
+      [0, 4.2],
+      [3, 4.2],
+      [6, 4.9],
+      [9, 6.7],
+      [12, 5.2],
+      [15, 5.2],
+      [18, 6.7],
+      [21, 6.2],
+    ],
+    renewable: [
+      [0, 0.18],
+      [3, 0.2],
+      [6, 0.23],
+      [9, 0.43],
+      [12, 0.62],
+      [15, 0.5],
+      [18, 0.13],
+      [21, 0.16],
+    ],
+  },
 };
+
+/** Most specific first, the same order the server resolves a grid profile in. */
+function curvesFor(site: SiteSummary): { carbon: [number, number][]; price: [number, number][]; renewable: [number, number][] } {
+  return CURVES[`${site.country}-${site.regionCode}`] ?? CURVES[site.country] ?? (CURVES.GB as NonNullable<(typeof CURVES)[string]>);
+}
 
 function interpolate(curve: [number, number][], hour: number): number {
   const wrapped = ((hour % 24) + 24) % 24;
@@ -145,7 +214,7 @@ function localHour(ms: number, timezone: string): number {
 }
 
 export function demoForecast(site: SiteSummary, nowMs: number): Forecast {
-  const curves = CURVES[site.country] ?? CURVES.GB!;
+  const curves = curvesFor(site);
   const slots = 96;
   const startMs = Math.floor(nowMs / (SLOT_MINUTES * 60_000)) * (SLOT_MINUTES * 60_000);
   const hourAt = (slot: number): number => localHour(startMs + slot * SLOT_MINUTES * 60_000, site.timezone) + (slot % 4) / 4;
@@ -184,15 +253,31 @@ export function demoForecast(site: SiteSummary, nowMs: number): Forecast {
   };
 }
 
+/** Bay count, power and id prefix per site, matching the scenario files the server seeds from. */
+const DEMO_BAYS: Record<string, { prefix: string; count: number; maxPowerKw: number }> = {
+  'site-gandhinagar-secretariat': { prefix: 'GN', count: 8, maxPowerKw: 22 },
+  'site-ahmedabad-ashram-road': { prefix: 'AF', count: 4, maxPowerKw: 60 },
+  'site-vadodara-alkapuri-depot': { prefix: 'VD', count: 6, maxPowerKw: 30 },
+  'site-surat-textile-park': { prefix: 'SR', count: 6, maxPowerKw: 22 },
+  'site-riverside': { prefix: 'CP', count: 8, maxPowerKw: 22 },
+};
+
+const baysFor = (siteId: string) => DEMO_BAYS[siteId] ?? { prefix: 'CP', count: 8, maxPowerKw: 22 };
+
+/** The bay the demo session is plugged into: the first one at whichever site is selected. */
+export function demoChargerId(siteId: string): string {
+  const bays = baysFor(siteId);
+  return `${bays.prefix}-01`;
+}
+
 export function demoChargers(siteId: string): Charger[] {
-  const count = siteId === 'site-koramangala' ? 7 : 10;
-  const maxPowerKw = siteId === 'site-koramangala' ? 60 : 22;
+  const { prefix, count, maxPowerKw } = baysFor(siteId);
   const busy = new Set([1, 3, 4, 7]);
   return Array.from({ length: count }, (_, index) => {
     const number = index + 1;
     const taken = busy.has(number);
     return {
-      id: `CP-${String(number).padStart(2, '0')}`,
+      id: `${prefix}-${String(number).padStart(2, '0')}`,
       label: `Bay ${number}`,
       maxPowerKw,
       online: true,
@@ -215,11 +300,16 @@ export function demoCurrent(site: SiteSummary, nowMs: number): CurrentSession {
   const forecast = demoForecast(site, nowMs);
   const carbonNow = forecast.carbonGPerKwh[0] ?? 250;
 
-  // Charging when the grid is in the cleaner half of its day, holding when it is not: the
-  // behaviour the optimiser would produce, driven off the same curve.
-  const dirty = carbonNow > 380;
+  // Charging when the grid is in the cleaner half of its own day, holding when it is not: the
+  // behaviour the optimiser would produce, driven off the same curve. The comparison has to be
+  // against this grid's own range, not a fixed number of grams — 380 g is a dirty hour in Britain
+  // and a clean one in Gujarat, and a fixed threshold would have the demo hold all day there.
+  const sorted = [...forecast.carbonGPerKwh].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? carbonNow;
+  const dirty = carbonNow > median;
   const elapsedHours = (nowMs - pluggedInMs) / HOUR;
-  const delivered = Math.min(energyNeededKwh, Math.max(0, elapsedHours - 0.5) * 4.4);
+  // Averaged over the stay rather than the rate while charging, since it holds for some of it.
+  const delivered = Math.min(energyNeededKwh, Math.max(0, elapsedHours - 0.5) * RATE_KW * 0.66);
 
   const slotMs = SLOT_MINUTES * 60_000;
   const gridStartMs = Math.floor(nowMs / slotMs) * slotMs;
@@ -232,7 +322,7 @@ export function demoCurrent(site: SiteSummary, nowMs: number): CurrentSession {
     .sort((a, b) => a.carbon - b.carbon);
   for (const entry of order) {
     if (left <= 0) break;
-    const take = Math.min(6.6, left / (SLOT_MINUTES / 60));
+    const take = Math.min(RATE_KW, left / (SLOT_MINUTES / 60));
     plannedKw[entry.slot] = Math.round(take * 100) / 100;
     left -= take * (SLOT_MINUTES / 60);
   }
@@ -241,16 +331,16 @@ export function demoCurrent(site: SiteSummary, nowMs: number): CurrentSession {
     session: {
       id: 'demo-session',
       siteId: site.id,
-      chargerId: 'CP-05',
+      chargerId: demoChargerId(site.id),
       status: 'active',
       mode: 'greenest',
       pluggedInMs,
       deadlineMs,
       energyNeededKwh,
       energyDeliveredKwh: Math.round(delivered * 100) / 100,
-      currentPowerKw: dirty || delivered >= energyNeededKwh ? 0 : 6.6,
-      limitKw: dirty ? 0 : 6.6,
-      maxPowerKw: 6.6,
+      currentPowerKw: dirty || delivered >= energyNeededKwh ? 0 : RATE_KW,
+      limitKw: dirty ? 0 : RATE_KW,
+      maxPowerKw: RATE_KW,
       deadlineRisk: false,
     },
     remainingKwh: Math.round(remaining * 100) / 100,
@@ -288,8 +378,8 @@ export function demoPreview(site: SiteSummary, energyKwh: number, deadlineMs: nu
 
   return {
     feasible: true,
-    earliestDeadlineAt: new Date(nowMs + (energyKwh / 6.6) * HOUR).toISOString(),
-    maxDeliverableKwh: Math.round(((deadlineMs - nowMs) / HOUR) * 6.6),
+    earliestDeadlineAt: new Date(nowMs + (energyKwh / RATE_KW) * HOUR).toISOString(),
+    maxDeliverableKwh: Math.round(((deadlineMs - nowMs) / HOUR) * RATE_KW),
     modes,
   };
 }
@@ -307,7 +397,7 @@ export function demoHistory(site: SiteSummary, nowMs: number): (Session & { repo
     return {
       id: `demo-past-${index}`,
       siteId: site.id,
-      chargerId: `CP-0${(index % 8) + 1}`,
+      chargerId: demoChargerId(site.id),
       status: 'complete',
       mode: row.mode,
       pluggedInMs,
@@ -316,7 +406,7 @@ export function demoHistory(site: SiteSummary, nowMs: number): (Session & { repo
       energyDeliveredKwh: row.energy,
       currentPowerKw: 0,
       limitKw: null,
-      maxPowerKw: 6.6,
+      maxPowerKw: RATE_KW,
       deadlineRisk: false,
       report: {
         sessionId: `demo-past-${index}`,

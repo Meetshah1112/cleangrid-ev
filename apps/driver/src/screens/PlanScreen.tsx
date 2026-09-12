@@ -124,7 +124,7 @@ export function PlanScreen({
       )}
 
       <View style={{ marginTop: theme.space(3), marginBottom: theme.space(2) }}>
-        <Label>What matters tonight?</Label>
+        <Label>What matters most?</Label>
         <Text style={styles.muted}>
           Used inside your {clockTime(session.deadlineMs)} deadline. Changing it re-solves the plan immediately.
         </Text>

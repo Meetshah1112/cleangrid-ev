@@ -226,6 +226,7 @@ export default function App() {
           site={site}
           vehicle={vehicles[0] ?? null}
           defaultMode={defaultMode}
+          nowMs={nowMs}
           onStarted={() => {
             loadSession();
             setTab('home');

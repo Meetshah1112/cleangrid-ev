@@ -1,14 +1,16 @@
 /**
  * Formatting. The site decides the time zone, the currency and the locale, not the phone — a driver
- * in Bengaluru should see rupees and a 12-hour clock while one in London sees pounds and 24-hour,
+ * in Gandhinagar should see rupees and a 12-hour clock while one in London sees pounds and 24-hour,
  * from the same build, because both are reading their own site's numbers.
  */
 
 const LOCALES: Record<string, string> = { GB: 'en-GB', IN: 'en-IN' };
 
-let timezone = process.env.EXPO_PUBLIC_SITE_TZ ?? 'Europe/London';
-let currency = 'GBP';
-let locale = 'en-GB';
+// These hold only until the first site loads, a few hundred milliseconds in. They match the
+// default site so that first frame is not briefly in the wrong currency.
+let timezone = process.env.EXPO_PUBLIC_SITE_TZ ?? 'Asia/Kolkata';
+let currency = 'INR';
+let locale = 'en-IN';
 
 export const setLocale = (nextTimezone: string, nextCurrency: string, country = 'GB'): void => {
   timezone = nextTimezone;

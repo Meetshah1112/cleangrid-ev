@@ -51,6 +51,32 @@ const projector =
     y: PAD + ((view.north - lat) / Math.max(1, view.north - view.south)) * (HEIGHT - PAD * 2),
   });
 
+/**
+ * Where each site's name goes, once they are allowed to disagree with the dot.
+ *
+ * Four sites in one state are a few pixels apart at continental scale, and four names printed on
+ * that spot are one illegible smudge. So the names are laid out rather than placed: sites are
+ * taken in order down the map, and any name that would land on the one above it is pushed below
+ * it instead, with a leader line back to its own dot. The dots stay exactly where the sites are —
+ * only the text moves, and it says which dot it belongs to.
+ */
+const LABEL_GAP = 13;
+
+function labelPlacement(
+  placed: readonly { readonly x: number; readonly y: number; readonly radius: number }[],
+): { readonly labelY: number; readonly leader: boolean }[] {
+  const order = placed.map((point, index) => ({ ...point, index })).sort((a, b) => a.y - b.y || a.x - b.x);
+  const out: { labelY: number; leader: boolean }[] = new Array(placed.length);
+  let lowest = Number.NEGATIVE_INFINITY;
+  for (const point of order) {
+    const natural = point.y + point.radius + 16;
+    const chosen = Math.max(natural, lowest + LABEL_GAP);
+    out[point.index] = { labelY: chosen, leader: chosen > natural + 1 };
+    lowest = chosen;
+  }
+  return out;
+}
+
 /** Round graticule lines that actually fall inside the window. */
 function ticks(from: number, to: number, count: number): number[] {
   const steps = [5, 10, 15, 30, 45, 60, 90];
@@ -83,6 +109,13 @@ export function NetworkMap({
   const view = windowFor(sites);
   const project = projector(view);
   const shown = sites.find((site) => site.siteId === (hovered ?? selectedId)) ?? sites[0] ?? null;
+  const labels = labelPlacement(
+    sites.map((site) => {
+      const point = project(site.lat, site.lng);
+      const used = site.gridConnectionKw > 0 ? site.currentDrawKw / site.gridConnectionKw : 0;
+      return { x: point.x, y: point.y, radius: 9 + Math.min(1, used) * 9 };
+    }),
+  );
 
   const meridians = ticks(view.west, view.east, 5);
   const parallels = ticks(view.south, view.north, 4);
@@ -115,11 +148,12 @@ export function NetworkMap({
           );
         })}
 
-        {sites.map((site) => {
+        {sites.map((site, index) => {
           const { x, y } = project(site.lat, site.lng);
           const used = site.gridConnectionKw > 0 ? site.currentDrawKw / site.gridConnectionKw : 0;
           const radius = 9 + Math.min(1, used) * 9;
           const active = site.siteId === (hovered ?? selectedId);
+          const label = labels[index] ?? { labelY: y + radius + 16, leader: false };
           return (
             <g
               key={site.siteId}
@@ -137,9 +171,12 @@ export function NetworkMap({
               role="button"
               aria-label={`${site.name}, drawing ${site.currentDrawKw} of ${site.gridConnectionKw} kW`}
             >
+              {label.leader ? (
+                <line x1={0} y1={radius} x2={0} y2={label.labelY - y - 9} className="netmap-leader" />
+              ) : null}
               <circle r={radius + 7} className="netmap-halo" style={{ fill: loadTone(site) }} />
               <circle r={radius} className="netmap-dot" style={{ fill: loadTone(site) }} />
-              <text y={radius + 16} className="netmap-name">
+              <text y={label.labelY - y} className="netmap-name">
                 {site.name.split(' ')[0]}
               </text>
             </g>

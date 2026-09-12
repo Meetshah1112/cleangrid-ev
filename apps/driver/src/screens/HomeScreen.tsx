@@ -76,13 +76,13 @@ export function HomeScreen({
           <StatTile
             onDeep
             value={soc === null ? (session ? kwh(session.energyDeliveredKwh) : '—') : percent(soc)}
-            label={soc === null ? 'Delivered tonight' : 'Current charge'}
+            label={soc === null ? 'Delivered so far' : 'Current charge'}
           />
           <View style={{ width: theme.space(2) }} />
           <StatTile
             onDeep
             value={session ? `+${kwh(current?.remainingKwh ?? 0)}` : '—'}
-            label={session ? 'Needed tonight' : 'No request yet'}
+            label={session ? 'Still needed' : 'No request yet'}
           />
         </View>
 
@@ -141,7 +141,7 @@ export function HomeScreen({
                 : `Guaranteed by ${clockTime(session.deadlineMs)}, ${countdown(session.deadlineMs, nowMs)} from now.`}
             </Text>
           </Card>
-          <Button title="See tonight's plan" tone="deep" onPress={onOpenPlan} />
+          <Button title="See the plan" tone="deep" onPress={onOpenPlan} />
           {onStop ? (
             <>
               <View style={{ height: theme.space(2) }} />
