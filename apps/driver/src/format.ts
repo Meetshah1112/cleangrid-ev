@@ -1,15 +1,63 @@
-export const TIMEZONE = process.env.EXPO_PUBLIC_SITE_TZ ?? 'Europe/London';
+/** Formatting. The site decides the time zone and the currency, not the phone. */
+
+let timezone = process.env.EXPO_PUBLIC_SITE_TZ ?? 'Europe/London';
+let currency = 'GBP';
+
+export const setLocale = (nextTimezone: string, nextCurrency: string): void => {
+  timezone = nextTimezone;
+  currency = nextCurrency;
+};
+
+export const getTimezone = (): string => timezone;
+export const getCurrency = (): string => currency;
 
 export function clockTime(ms: number): string {
   return new Intl.DateTimeFormat('en-GB', {
-    timeZone: TIMEZONE,
+    timeZone: timezone,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   }).format(new Date(ms));
 }
 
-export const money = (value: number): string => `£${value.toFixed(2)}`;
+export function localHour(ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(
+    new Date(ms),
+  );
+  return Number(parts);
+}
+
+export const money = (value: number): string =>
+  new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-GB', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: value >= 1000 ? 0 : 2,
+  }).format(value);
+
+/** A calendar stamp in the site's time zone, split so the day can be stacked over the month. */
+export function dayStamp(ms: number): { day: string; month: string } {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, day: '2-digit', month: 'short' }).formatToParts(
+    new Date(ms),
+  );
+  return {
+    day: parts.find((part) => part.type === 'day')?.value ?? '',
+    month: parts.find((part) => part.type === 'month')?.value ?? '',
+  };
+}
+
+export const monthLabel = (ms: number): string =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: timezone, month: 'long' }).format(new Date(ms));
+
+export const weekday = (ms: number): string =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: timezone, weekday: 'long' }).format(new Date(ms));
+
+/** Is this timestamp in the same calendar month, in the site's time zone, as the reference? */
+export function sameMonth(ms: number, referenceMs: number): boolean {
+  const key = (value: number): string =>
+    new Intl.DateTimeFormat('en-GB', { timeZone: timezone, year: 'numeric', month: '2-digit' }).format(new Date(value));
+  return key(ms) === key(referenceMs);
+}
+
 export const percent = (share: number): string => `${Math.round(share * 100)}%`;
 export const kwh = (value: number): string => `${value.toFixed(1)} kWh`;
 
@@ -24,7 +72,7 @@ export function countdown(toMs: number, nowMs: number): string {
 
 /** A number people can picture, rather than a mass of gas. */
 export function co2Equivalent(kg: number): string {
-  if (kg <= 0) return 'about the same as charging on plug-in';
+  if (kg <= 0.01) return 'about the same as charging on plug-in';
   const carKm = kg / 0.12;
   if (carKm < 2) return `about ${(kg * 1000).toFixed(0)} g, roughly a kettle's worth`;
   return `about the same as ${carKm.toFixed(0)} km not driven in a petrol car`;

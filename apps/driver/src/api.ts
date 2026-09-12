@@ -4,13 +4,20 @@
  * A phone needs the machine's LAN address here, not localhost.
  */
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8085';
-export const SITE_ID = process.env.EXPO_PUBLIC_SITE_ID ?? 'site-riverside';
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8095';
+
+/** Which site the driver is at. Changeable in Profile, because a fleet has more than one. */
+let siteId = process.env.EXPO_PUBLIC_SITE_ID ?? 'site-riverside';
+export const getSiteId = (): string => siteId;
+export const setSiteId = (next: string): void => {
+  siteId = next;
+};
 
 export type ChargingMode = 'cheapest' | 'greenest' | 'fastest' | 'balanced';
 
 export interface Session {
   id: string;
+  siteId: string;
   chargerId: string;
   status: 'pending' | 'active' | 'complete' | 'aborted';
   mode: ChargingMode;
@@ -27,6 +34,8 @@ export interface Session {
 export interface CurrentSession {
   session: Session;
   remainingKwh: number;
+  /** Reported by the car through the charger; null when the charger sends no SoC. */
+  socPercent?: number | null;
   plannedKw: number[] | null;
   planGrid: { startMs: number; slotMinutes: number; slots: number } | null;
 }
@@ -70,6 +79,15 @@ export interface Report {
   provisional?: boolean;
 }
 
+export interface SiteSummary {
+  id: string;
+  name: string;
+  timezone: string;
+  currency: string;
+  country: string;
+  gridConnectionKw: number;
+}
+
 export interface Vehicle {
   id: string;
   label: string;
@@ -77,11 +95,28 @@ export interface Vehicle {
   maxChargeKw: number;
 }
 
+export interface Connector {
+  connectorId: number;
+  status: string;
+  sessionId: string | null;
+}
+
 export interface Charger {
   id: string;
   label: string;
   maxPowerKw: number;
   online: boolean;
+  connectors?: Connector[];
+}
+
+/** Statuses that mean a driver can plug in here right now. */
+const FREE_STATUSES = ['Available', 'Preparing'];
+
+export function bayIsFree(charger: Charger): boolean {
+  if (!charger.online) return false;
+  const connectors = charger.connectors ?? [];
+  if (connectors.length === 0) return true;
+  return connectors.some((connector) => connector.sessionId === null && FREE_STATUSES.includes(connector.status));
 }
 
 export class ApiError extends Error {
@@ -141,14 +176,15 @@ export async function syncClock(): Promise<void> {
 export const api = {
   clock: () => request<{ nowMs: number; scale: number }>('/clock'),
   me: () => request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me'),
-  forecast: () => request<Forecast>(`/sites/${SITE_ID}/forecast?hours=24`),
-  chargers: () => request<Charger[]>(`/sites/${SITE_ID}/chargers`),
+  sites: () => request<SiteSummary[]>('/sites'),
+  forecast: () => request<Forecast>(`/sites/${siteId}/forecast?hours=24`),
+  chargers: () => request<Charger[]>(`/sites/${siteId}/chargers`),
   vehicles: () => request<Vehicle[]>('/vehicles'),
   current: () => request<CurrentSession | null>('/sessions/current'),
   history: () => request<(Session & { report: Report | null })[]>('/sessions?limit=20'),
   report: (sessionId: string) => request<Report>(`/sessions/${sessionId}/report`),
   preview: (input: { energyKwh: number; deadlineAt: string; maxPowerKw: number }) =>
-    request<Preview>('/sessions/preview', { method: 'POST', body: JSON.stringify({ siteId: SITE_ID, ...input }) }),
+    request<Preview>('/sessions/preview', { method: 'POST', body: JSON.stringify({ siteId, ...input }) }),
   createSession: (input: {
     chargerId: string;
     vehicleId?: string;
