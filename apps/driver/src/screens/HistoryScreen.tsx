@@ -73,7 +73,11 @@ export function HistoryScreen({
                     </Text>
                     <Text style={styles.rowFacts}>
                       {kwh(row.energyDeliveredKwh)}
-                      {row.report ? ` · ${percent(row.report.renewableShare)} renewable` : ' · in progress'}
+                      {row.report
+                        ? ` · ${percent(row.report.renewableShare)} renewable`
+                        : row.status === 'aborted'
+                          ? ' · interrupted, not scored'
+                          : ' · in progress'}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
