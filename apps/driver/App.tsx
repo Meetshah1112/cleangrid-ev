@@ -12,6 +12,7 @@ import {
   api,
   getDriverId,
   getSiteId,
+  isOffline,
   serverNow,
   setSiteId,
   syncClock,
@@ -59,6 +60,7 @@ export default function App() {
   const [clockScale, setClockScale] = useState(1);
   const [nowMs, setNowMs] = useState(() => serverNow());
   const [error, setError] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // The site's clock and currency drive every formatter, so they are applied before anything renders.
@@ -84,6 +86,7 @@ export default function App() {
         }
         previousSessionId.current = next?.session.id ?? null;
         setCurrent(next);
+        setDemo(isOffline());
         setError(null);
       })
       .catch((caught: Error) => setError(caught.message))
@@ -273,7 +276,16 @@ export default function App() {
     <SafeAreaView style={styles.app}>
       <StatusBar style="dark" />
       <View style={styles.body}>
-        {error ? (
+        {/* A jury must never mistake the built-in snapshot for a live measurement. */}
+        {demo ? (
+          <View style={styles.errorWrap}>
+            <Notice>
+              Demo data. No CleanGrid server is reachable from this phone, so these figures come from a built-in
+              snapshot rather than from live chargers.
+            </Notice>
+          </View>
+        ) : null}
+        {error && !demo ? (
           <View style={styles.errorWrap}>
             <Notice tone="red">
               {error} — check that the phone and the server are on the same network.

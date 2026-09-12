@@ -1,3 +1,13 @@
+import {
+  DEMO_SITES,
+  DEMO_VEHICLE,
+  demoChargers,
+  demoCurrent,
+  demoForecast,
+  demoHistory,
+  demoPreview,
+} from './demo';
+
 /**
  * API client. Until Supabase auth is wired in, the driver is identified by the dev headers the
  * server accepts; `EXPO_PUBLIC_DRIVER_ID` picks which seeded driver the app signs in as.
@@ -22,6 +32,10 @@ const PROBE_TIMEOUT_MS = 2_500;
 
 let resolvedBase: string | null = null;
 let probe: Promise<string> | null = null;
+let offline = false;
+
+/** True when no server answered and the app is running on the built-in snapshot. */
+export const isOffline = (): boolean => offline;
 
 export const getApiBase = (): string => resolvedBase ?? (CANDIDATES[0] as string);
 
@@ -45,9 +59,11 @@ async function resolveBase(): Promise<string> {
       for (const candidate of CANDIDATES) {
         if (await reachable(candidate)) {
           resolvedBase = candidate;
+          offline = false;
           return candidate;
         }
       }
+      offline = true;
       // Nothing answered. Forget the attempt so the next request probes again, and report against
       // the configured address, which is the one worth naming in an error.
       probe = null;
@@ -218,37 +234,108 @@ let timeScale = 1;
 export const serverNow = (): number => anchorServerMs + (Date.now() - anchorRealMs) * timeScale;
 
 export async function syncClock(): Promise<void> {
-  const clock = await request<{ nowMs: number; scale: number }>('/clock');
+  const clock = await api.clock();
   anchorServerMs = clock.nowMs;
   anchorRealMs = Date.now();
   timeScale = clock.scale;
 }
 
+/**
+ * Demo fallback.
+ *
+ * Only ever used when no server answered the initial probe: if one was reachable and later drops,
+ * errors surface instead, because quietly replacing measured numbers with invented ones is the one
+ * thing this app must not do. Anything served from here is labelled in the interface.
+ */
+const demoState: { stopped: boolean; mode: ChargingMode | null } = { stopped: false, mode: null };
+
+const demoSite = (): SiteSummary => DEMO_SITES.find((site) => site.id === siteId) ?? (DEMO_SITES[0] as SiteSummary);
+
+async function orDemo<T>(run: () => Promise<T>, fallback: () => T): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (offline) return fallback();
+    throw error;
+  }
+}
+
+function demoCurrentSession(): CurrentSession | null {
+  if (demoState.stopped) return null;
+  const current = demoCurrent(demoSite(), Date.now());
+  if (demoState.mode === null) return current;
+  return { ...current, session: { ...current.session, mode: demoState.mode } };
+}
+
 export const api = {
-  clock: () => request<{ nowMs: number; scale: number }>('/clock'),
-  me: () => request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me'),
+  clock: () => orDemo(() => request<{ nowMs: number; scale: number }>('/clock'), () => ({ nowMs: Date.now(), scale: 1 })),
+  me: () =>
+    orDemo(
+      () => request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me'),
+      () => ({ id: driverId, displayName: 'Amara Okafor', defaultMode: (demoState.mode ?? 'greenest') as ChargingMode }),
+    ),
   updateMe: (patch: { defaultMode?: ChargingMode }) =>
-    request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me', {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    }),
-  sites: () => request<SiteSummary[]>('/sites'),
-  forecast: () => request<Forecast>(`/sites/${siteId}/forecast?hours=24`),
-  chargers: () => request<Charger[]>(`/sites/${siteId}/chargers`),
-  vehicles: () => request<Vehicle[]>('/vehicles'),
-  current: () => request<CurrentSession | null>('/sessions/current'),
-  history: () => request<(Session & { report: Report | null })[]>('/sessions?limit=20'),
-  report: (sessionId: string) => request<Report>(`/sessions/${sessionId}/report`),
+    orDemo(
+      () =>
+        request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me', {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+        }),
+      () => {
+        if (patch.defaultMode) demoState.mode = patch.defaultMode;
+        return { id: driverId, displayName: 'Amara Okafor', defaultMode: demoState.mode ?? 'greenest' };
+      },
+    ),
+  sites: () => orDemo(() => request<SiteSummary[]>('/sites'), () => DEMO_SITES),
+  forecast: () =>
+    orDemo(() => request<Forecast>(`/sites/${siteId}/forecast?hours=24`), () => demoForecast(demoSite(), Date.now())),
+  chargers: () => orDemo(() => request<Charger[]>(`/sites/${siteId}/chargers`), () => demoChargers(siteId)),
+  vehicles: () => orDemo(() => request<Vehicle[]>('/vehicles'), () => [DEMO_VEHICLE]),
+  current: () => orDemo(() => request<CurrentSession | null>('/sessions/current'), demoCurrentSession),
+  history: () =>
+    orDemo(
+      () => request<(Session & { report: Report | null })[]>('/sessions?limit=20'),
+      () => demoHistory(demoSite(), Date.now()),
+    ),
+  report: (sessionId: string) =>
+    orDemo(
+      () => request<Report>(`/sessions/${sessionId}/report`),
+      () => demoHistory(demoSite(), Date.now())[0]?.report as Report,
+    ),
   preview: (input: { energyKwh: number; deadlineAt: string; maxPowerKw: number }) =>
-    request<Preview>('/sessions/preview', { method: 'POST', body: JSON.stringify({ siteId, ...input }) }),
+    orDemo(
+      () => request<Preview>('/sessions/preview', { method: 'POST', body: JSON.stringify({ siteId, ...input }) }),
+      () => demoPreview(demoSite(), input.energyKwh, Date.parse(input.deadlineAt), Date.now()),
+    ),
   createSession: (input: {
     chargerId: string;
     vehicleId?: string;
     energyKwh: number;
     deadlineAt: string;
     mode: ChargingMode;
-  }) => request<Session>('/sessions', { method: 'POST', body: JSON.stringify(input) }),
+  }) =>
+    orDemo(
+      () => request<Session>('/sessions', { method: 'POST', body: JSON.stringify(input) }),
+      () => {
+        demoState.stopped = false;
+        demoState.mode = input.mode;
+        return (demoCurrentSession() as CurrentSession).session;
+      },
+    ),
   updateSession: (id: string, patch: { deadlineAt?: string; mode?: ChargingMode; energyKwh?: number }) =>
-    request<Session>(`/sessions/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
-  stopSession: (id: string) => request<{ status: string }>(`/sessions/${id}/stop`, { method: 'POST' }),
+    orDemo(
+      () => request<Session>(`/sessions/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+      () => {
+        if (patch.mode) demoState.mode = patch.mode;
+        return (demoCurrentSession() as CurrentSession).session;
+      },
+    ),
+  stopSession: (id: string) =>
+    orDemo(
+      () => request<{ status: string }>(`/sessions/${id}/stop`, { method: 'POST' }),
+      () => {
+        demoState.stopped = true;
+        return { status: 'complete' };
+      },
+    ),
 };
