@@ -4,7 +4,58 @@
  * A phone needs the machine's LAN address here, not localhost.
  */
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8095';
+/**
+ * Where the server is.
+ *
+ * A phone reaches this machine one of two ways, and which one is true changes without warning: over
+ * Wi-Fi at its LAN address, or over the USB cable once `adb reverse tcp:8095 tcp:8095` maps the
+ * phone's own localhost back here. Rather than bake in a guess and fail when the phone drops to
+ * mobile data, the app asks each candidate for /health on first use and keeps whichever answers.
+ */
+const CANDIDATES: string[] = [
+  process.env.EXPO_PUBLIC_API_URL,
+  'http://127.0.0.1:8095',
+  'http://10.0.2.2:8095', // the host machine, as seen from an Android emulator
+].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+const PROBE_TIMEOUT_MS = 2_500;
+
+let resolvedBase: string | null = null;
+let probe: Promise<string> | null = null;
+
+export const getApiBase = (): string => resolvedBase ?? (CANDIDATES[0] as string);
+
+async function reachable(candidate: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${candidate}/health`, { signal: controller.signal });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveBase(): Promise<string> {
+  if (resolvedBase !== null) return resolvedBase;
+  if (probe === null) {
+    probe = (async () => {
+      for (const candidate of CANDIDATES) {
+        if (await reachable(candidate)) {
+          resolvedBase = candidate;
+          return candidate;
+        }
+      }
+      // Nothing answered. Forget the attempt so the next request probes again, and report against
+      // the configured address, which is the one worth naming in an error.
+      probe = null;
+      return CANDIDATES[0] as string;
+    })();
+  }
+  return probe;
+}
 
 /** Which site the driver is at. Changeable in Profile, because a fleet has more than one. */
 let siteId = process.env.EXPO_PUBLIC_SITE_ID ?? 'site-riverside';
@@ -140,7 +191,7 @@ export const getDriverId = (): string => driverId;
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'x-dev-role': 'driver', 'x-dev-user': driverId };
   if (init?.body !== undefined) headers['content-type'] = 'application/json';
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const response = await fetch(`${await resolveBase()}${path}`, { ...init, headers });
   const body = (await response.json().catch(() => ({}))) as {
     ok?: boolean;
     data?: T;

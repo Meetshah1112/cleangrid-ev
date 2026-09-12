@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  SafeAreaView,
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
   api,
@@ -262,8 +269,14 @@ export default function App() {
   );
 }
 
+/**
+ * Android 16 draws every app edge to edge and SafeAreaView only insets on iOS, so the status bar
+ * height has to be reserved here or the first line of every screen sits under the clock.
+ */
+const TOP_INSET = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
+
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: theme.bg },
+  app: { flex: 1, backgroundColor: theme.bg, paddingTop: TOP_INSET },
   body: { flex: 1 },
   errorWrap: { paddingHorizontal: theme.space(5), paddingTop: theme.space(3) },
 });

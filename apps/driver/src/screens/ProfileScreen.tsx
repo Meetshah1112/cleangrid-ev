@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { API_BASE, type ChargingMode, type SiteSummary, type Vehicle } from '../api';
+import { getApiBase, type ChargingMode, type SiteSummary, type Vehicle } from '../api';
 import { clockTime, getTimezone } from '../format';
 import { MODE_COPY, theme } from '../theme';
 import { Card, ChoiceRow, Divider, Label, Screen, ScreenHeader } from '../components/ui';
@@ -91,7 +91,7 @@ export function ProfileScreen({
         <Label>Connection</Label>
         <View style={styles.line}>
           <Text style={styles.lineLabel}>Server</Text>
-          <Text style={styles.lineValue}>{API_BASE.replace(/^https?:\/\//, '')}</Text>
+          <Text style={styles.lineValue}>{getApiBase().replace(/^https?:\/\//, '')}</Text>
         </View>
         <View style={styles.line}>
           <Text style={styles.lineLabel}>Site time</Text>
