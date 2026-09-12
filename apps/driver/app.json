@@ -7,8 +7,9 @@
     "userInterfaceStyle": "light",
     "scheme": "cleangrid",
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f8f5f"
+      "backgroundColor": "#fcfdfb"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -20,14 +21,16 @@
     "android": {
       "package": "dev.cleangrid.driver",
       "adaptiveIcon": {
-        "backgroundColor": "#123528"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#14392b"
       },
       "permissions": [
         "INTERNET"
       ]
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
@@ -38,6 +41,7 @@
           }
         }
       ]
-    ]
+    ],
+    "icon": "./assets/icon.png"
   }
 }

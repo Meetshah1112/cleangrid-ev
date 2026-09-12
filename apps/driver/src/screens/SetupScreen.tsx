@@ -12,9 +12,9 @@ import {
   type Vehicle,
 } from '../api';
 import { clockTime, countdown, kwh } from '../format';
-import { theme } from '../theme';
+import { fonts, theme, type } from '../theme';
 import { ModePicker } from '../components/ModePicker';
-import { Button, Card, ChoiceRow, Label, Notice, Screen, ScreenHeader, Stepper, TextLink } from '../components/ui';
+import { Button, ChoiceRow, Notice, PageHead, Screen, Section, Stepper, TextLink } from '../components/ui';
 
 type Step = 'bay' | 'need';
 
@@ -65,7 +65,7 @@ export function SetupScreen({
     setChargersError(null);
     void api
       .chargers()
-      .then((list) => setChargers(list))
+      .then((list) => setChargers([...list].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))))
       .catch((error: Error) => {
         setChargers([]);
         setChargersError(error.message);
@@ -143,17 +143,18 @@ export function SetupScreen({
   if (step === 'bay') {
     return (
       <Screen>
-        <ScreenHeader
+        <PageHead
           eyebrow="Start a session"
           title="Which bay are you at?"
-          subtitle={site ? `${site.name} · ${site.gridConnectionKw} kW site connection` : 'Finding your site…'}
+          lede={site ? `${site.name}, ${site.gridConnectionKw} kW site connection` : 'Finding your site.'}
         />
+        <View style={{ height: theme.space(4) }} />
 
         {chargers === null ? (
-          <ActivityIndicator color={theme.green} style={{ marginTop: theme.space(8) }} />
+          <ActivityIndicator color={theme.canopy} style={{ marginTop: theme.space(8) }} />
         ) : chargers.length === 0 ? (
           <>
-            <Notice tone="red">
+            <Notice tone="risk">
               {chargersError
                 ? `Could not load the bays at this site: ${chargersError}`
                 : 'This site has no chargers registered yet.'}
@@ -191,7 +192,7 @@ export function SetupScreen({
                 title={option.label}
                 subtitle={
                   !option.online
-                    ? 'Offline — pick another bay'
+                    ? 'Offline, pick another bay'
                     : free
                       ? `Up to ${option.maxPowerKw} kW`
                       : 'Another car is plugged in here'
@@ -215,14 +216,13 @@ export function SetupScreen({
 
   return (
     <Screen>
-      <ScreenHeader
-        eyebrow={charger ? `${charger.label} · up to ${maxPowerKw} kW` : 'Session setup'}
+      <PageHead
+        eyebrow={charger ? `${charger.label}, up to ${maxPowerKw} kW` : 'Session setup'}
         title="How much, and by when?"
-        subtitle="We will fit it into the cleanest, cheapest hours inside that window."
+        lede="We will fit it into the cleanest, cheapest hours inside that window."
       />
 
-      <Card>
-        <Label>Energy needed</Label>
+      <Section label="Energy needed">
         <Stepper
           value={energyKwh}
           onChange={setEnergyKwh}
@@ -263,10 +263,9 @@ export function SetupScreen({
             </Text>
           </>
         ) : null}
-      </Card>
+      </Section>
 
-      <Card>
-        <Label>Ready by</Label>
+      <Section label="Ready by">
         <Stepper
           value={deadlineMs}
           onChange={setDeadlineMs}
@@ -281,24 +280,27 @@ export function SetupScreen({
             ? `${countdown(deadlineMs, nowMs)} from now, at ${maxPowerKw} kW that is up to ${kwh((slackMinutes / 60) * maxPowerKw)}`
             : 'That time has already passed.'}
         </Text>
-      </Card>
+      </Section>
 
-      {warning ? <Notice tone={feasible ? 'amber' : 'red'}>{warning}</Notice> : null}
+      {warning ? (
+        <View style={{ marginTop: theme.space(5) }}>
+          <Notice tone={feasible ? 'warn' : 'risk'}>{warning}</Notice>
+        </View>
+      ) : null}
 
-      <View style={{ marginTop: theme.space(2), marginBottom: theme.space(2) }}>
-        <Label>What matters most?</Label>
+      <Section label="What matters most?">
         <Text style={styles.hint}>
           {feasible
             ? 'Every option meets your deadline. They differ in what they cost and emit getting there.'
             : 'No option can finish in time, so all four cost the same. Give it more time or ask for less.'}
         </Text>
-      </View>
-      <View style={feasible ? undefined : styles.dimmed}>
-        <ModePicker mode={mode} onChange={setMode} previews={previews} />
-      </View>
+        <View style={feasible ? { marginTop: theme.space(3) } : [styles.dimmed, { marginTop: theme.space(3) }]}>
+          <ModePicker mode={mode} onChange={setMode} previews={previews} />
+        </View>
+      </Section>
 
       <Button
-        title={busy ? 'Starting…' : feasible ? 'Confirm and start' : 'Not enough time'}
+        title={busy ? 'Starting' : feasible ? 'Confirm and start' : 'Not enough time'}
         onPress={start}
         disabled={busy || !charger || !feasible}
       />
@@ -308,20 +310,18 @@ export function SetupScreen({
 }
 
 const styles = StyleSheet.create({
-  hint: { fontSize: 12, color: theme.muted, marginTop: theme.space(2), lineHeight: 17 },
+  hint: { ...type.caption, marginTop: theme.space(2) },
   presets: { flexDirection: 'row', gap: theme.space(2), marginTop: theme.space(3) },
   preset: {
     flex: 1,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: theme.line,
-    backgroundColor: theme.card,
+    borderRadius: theme.radiusPill,
+    backgroundColor: theme.mist,
   },
-  presetOn: { borderColor: theme.green, backgroundColor: theme.greenSoft },
-  presetText: { fontSize: 14, fontWeight: '600', color: theme.muted },
-  presetTextOn: { color: theme.green },
+  presetOn: { backgroundColor: theme.forest },
+  presetText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: theme.forest },
+  presetTextOn: { color: theme.paper },
   dimmed: { opacity: 0.45 },
 });

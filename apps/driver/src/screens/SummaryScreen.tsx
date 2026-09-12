@@ -1,8 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { Report } from '../api';
+import { serverNow, type Report } from '../api';
 import { co2Equivalent, kwh, money, percent } from '../format';
-import { theme } from '../theme';
-import { Button, Card, Chip, Label, ProgressBar, Screen, ScreenHeader, StatTile } from '../components/ui';
+import { theme, type } from '../theme';
+import { Valley } from '../components/Valley';
+import { Button, Figure, ForestBand, Line, Screen, Section, Status } from '../components/ui';
+
+const HOUR = 3_600_000;
 
 function grade(score: number): string {
   if (score >= 90) return 'Excellent';
@@ -19,79 +22,85 @@ function grade(score: number): string {
 export function SummaryScreen({ report, onDone }: { report: Report; onDone: () => void }) {
   const baselineCo2Kg = report.co2Kg + report.avoidedCo2Kg;
   const share = baselineCo2Kg > 0 ? report.co2Kg / baselineCo2Kg : 1;
+  const nowMs = serverNow();
+  const avoided = report.avoidedCo2Kg;
+
+  const hero = (
+    <>
+      <Valley startMs={Math.floor(nowMs / HOUR) * HOUR - 6 * HOUR} spanMs={18 * HOUR} nowMs={nowMs} height={250} horizon={0.6}>
+        {(geometry) => (
+          <View style={styles.heroCopy}>
+            <Text style={[type.eyebrow, { color: geometry.tone === 'light' ? theme.onForestMuted : theme.stone }]}>Session complete</Text>
+            <Text style={[type.display, geometry.tone === 'light' && { color: theme.onForest }]} accessibilityRole="header" textBreakStrategy="balanced">
+              A better charge, measured.
+            </Text>
+          </View>
+        )}
+      </Valley>
+      <ForestBand style={styles.band}>
+        <View>
+          <Text style={styles.score}>{Math.round(report.greenScore)}</Text>
+          <Text style={styles.scoreLabel}>Green Score, {grade(report.greenScore).toLowerCase()}</Text>
+        </View>
+        <View style={styles.bandSide}>
+          <Status tone="onForest">{percent(report.renewableShare)} renewable</Status>
+          <Status tone="onForest">{report.verified ? 'Meter-verified' : 'Estimated'}</Status>
+        </View>
+      </ForestBand>
+    </>
+  );
 
   return (
-    <Screen>
-      <ScreenHeader eyebrow="Session complete" title="A better charge, measured." />
-
-      <View style={styles.scorePanel}>
-        <Text style={styles.score}>{Math.round(report.greenScore)}</Text>
-        <Text style={styles.scoreLabel}>Green Score · {grade(report.greenScore)}</Text>
-        <View style={{ marginTop: theme.space(3) }}>
-          <Chip>{percent(report.renewableShare)} renewable energy</Chip>
-        </View>
-      </View>
-
-      <View style={styles.tiles}>
-        <StatTile
-          value={`${report.avoidedCo2Kg.toFixed(1)} kg`}
-          label="CO₂ avoided vs. charge now"
-          accent={theme.green}
+    <Screen hero={hero}>
+      <View style={styles.figures}>
+        <Figure
+          value={`${Math.abs(avoided).toFixed(1)} kg`}
+          label={avoided < 0 ? 'CO₂ above charging on plug-in' : 'CO₂ avoided against charging on plug-in'}
+          accent={avoided < 0 ? theme.coralInk : theme.canopyInk}
         />
-        <View style={{ width: theme.space(3) }} />
-        <StatTile value={money(report.costSaved)} label="Saved on this session" accent={theme.green} />
+        <Figure
+          value={money(Math.abs(report.costSaved))}
+          label={report.costSaved < 0 ? 'more than charging on plug-in' : 'saved on this session'}
+          accent={report.costSaved < 0 ? theme.coralInk : theme.canopyInk}
+        />
       </View>
 
-      <Card>
-        <View style={styles.rowBetween}>
-          <Label>{kwh(report.energyKwh)} moved to cleaner hours</Label>
-          <Text style={report.verified ? styles.verified : styles.estimated}>
-            {report.verified ? 'Verified' : 'Estimated'}
-          </Text>
-        </View>
-        <View style={styles.rowBaseline}>
-          <Text style={styles.strike}>{baselineCo2Kg.toFixed(1)} kg</Text>
-          <Text style={styles.actual}>{report.co2Kg.toFixed(1)} kg CO₂</Text>
+      <Section label={`${kwh(report.energyKwh)} moved to cleaner hours`}>
+        <View style={styles.compare}>
+          <Text style={styles.baseline}>{baselineCo2Kg.toFixed(1)} kg on plug-in</Text>
+          <Text style={type.subtitle}>{report.co2Kg.toFixed(1)} kg CO₂ with CleanGrid</Text>
         </View>
         <View style={{ marginTop: theme.space(3) }}>
-          <ProgressBar value={share} />
+          <Line value={share} />
         </View>
-        <Text style={styles.footnote}>
+        <Text style={[type.caption, { marginTop: theme.space(3) }]}>
           {report.verified
-            ? 'Measured from the charger’s own meter against the grid carbon actually recorded during your session.'
+            ? 'Measured from the charger’s own meter against the grid carbon recorded during your session.'
             : 'Estimated from the plan: some meter readings were missing for this session.'}
         </Text>
-      </Card>
+      </Section>
 
-      <Card>
-        <Label>What that means</Label>
-        <Text style={styles.equivalence}>{co2Equivalent(report.avoidedCo2Kg)}</Text>
-        <Text style={styles.footnote}>
-          {kwh(report.energyKwh)} delivered · {money(report.cost)} · {percent(report.renewableShare)} renewable
+      <Section label="What that means">
+        <Text style={type.body}>{co2Equivalent(report.avoidedCo2Kg)}</Text>
+        <Text style={[type.caption, { marginTop: theme.space(2) }]}>
+          {kwh(report.energyKwh)} delivered for {money(report.cost)}, {percent(report.renewableShare)} renewable.
         </Text>
-      </Card>
+      </Section>
 
-      <Button title="Done" onPress={onDone} />
+      <View style={{ marginTop: theme.space(6) }}>
+        <Button title="Done" onPress={onDone} />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scorePanel: {
-    backgroundColor: theme.limeSoft,
-    borderRadius: theme.radius,
-    padding: theme.space(5),
-    marginBottom: theme.space(3),
-  },
-  score: { fontSize: 66, lineHeight: 72, fontWeight: '800', color: theme.deep, fontVariant: ['tabular-nums'] },
-  scoreLabel: { fontSize: 14, color: theme.ink, fontWeight: '600' },
-  tiles: { flexDirection: 'row', marginBottom: theme.space(3) },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowBaseline: { flexDirection: 'row', alignItems: 'baseline', gap: theme.space(3), marginTop: theme.space(1) },
-  strike: { fontSize: 15, color: theme.faint, textDecorationLine: 'line-through', fontVariant: ['tabular-nums'] },
-  actual: { fontSize: 19, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
-  verified: { fontSize: 12, fontWeight: '700', color: theme.green },
-  estimated: { fontSize: 12, fontWeight: '700', color: theme.amber },
-  footnote: { marginTop: theme.space(3), fontSize: 12.5, color: theme.muted, lineHeight: 18 },
-  equivalence: { fontSize: 16, fontWeight: '600', color: theme.ink, lineHeight: 22 },
+  heroCopy: { paddingHorizontal: theme.space(5), paddingTop: theme.space(5), gap: theme.space(2) },
+  band: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.space(4) },
+  score: { fontFamily: type.figure.fontFamily, fontSize: 64, lineHeight: 80, color: theme.lime },
+  scoreLabel: { ...type.caption, color: theme.onForestMuted },
+  bandSide: { alignItems: 'flex-end', gap: theme.space(2) },
+  figures: { flexDirection: 'row', gap: theme.space(4), marginTop: theme.space(1) },
+  compare: { gap: 2 },
+  baseline: { ...type.caption, textDecorationLine: 'line-through', color: theme.pebble },
 });

@@ -1,8 +1,8 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { Forecast, Report, Session, SiteSummary } from '../api';
-import { clockTime, dayStamp, kwh, monthLabel, money, percent, sameMonth, weekday } from '../format';
-import { MODE_COPY, theme } from '../theme';
-import { Card, Chip, DeepCard, Divider, Label, Screen, ScreenHeader } from '../components/ui';
+import { clockTime, dayStamp, getCurrency, kwh, monthLabel, money, percent, sameMonth, weekday } from '../format';
+import { MODE_COPY, fonts, theme, type } from '../theme';
+import { Figure, ForestBand, PageHead, Screen, Section } from '../components/ui';
 
 type HistoryRow = Session & { report: Report | null };
 
@@ -24,113 +24,102 @@ export function HistoryScreen({
   const finished = (rows ?? []).filter((row) => row.report !== null);
   const thisMonth = finished.filter((row) => sameMonth(row.pluggedInMs, nowMs));
   const avoidedKg = thisMonth.reduce((total, row) => total + (row.report?.avoidedCo2Kg ?? 0), 0);
-  const savedMoney = thisMonth.reduce((total, row) => total + (row.report?.costSaved ?? 0), 0);
+  // Savings are only added up in the currency on screen: rupees saved in Gandhinagar are not pounds.
+  const currency = getCurrency();
+  const savedMoney = thisMonth
+    .filter((row) => (sites.find((site) => site.id === row.siteId)?.currency ?? currency) === currency)
+    .reduce((total, row) => total + (row.report?.costSaved ?? 0), 0);
   const averageScore =
-    finished.length === 0
-      ? null
-      : Math.round(finished.reduce((total, row) => total + (row.report?.greenScore ?? 0), 0) / finished.length);
+    finished.length === 0 ? null : Math.round(finished.reduce((total, row) => total + (row.report?.greenScore ?? 0), 0) / finished.length);
+
+  const hero = (
+    <>
+      <View style={styles.head}>
+        <PageHead eyebrow="Your charging footprint" title="Cleaner with every session." />
+      </View>
+      <ForestBand>
+        <Text style={styles.bandEyebrow}>In {monthLabel(nowMs)}</Text>
+        <View style={styles.bandFigures}>
+          <Figure
+            onForest
+            accent={avoidedKg < 0 ? '#ffbfae' : theme.lime}
+            value={`${Math.abs(avoidedKg).toFixed(1)} kg`}
+            label={avoidedKg < 0 ? 'CO₂ above charging on plug-in' : 'CO₂ avoided'}
+          />
+          <Figure onForest value={money(Math.abs(savedMoney))} label={savedMoney < 0 ? 'more than on plug-in' : 'saved'} />
+          <Figure onForest value={averageScore === null ? '--' : String(averageScore)} label="average Green Score" />
+        </View>
+      </ForestBand>
+    </>
+  );
 
   return (
-    <Screen>
-      <ScreenHeader eyebrow="Your charging footprint" title="Cleaner with every session." />
-
-      <View style={styles.banner}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.bannerValue}>
-            {avoidedKg.toFixed(1)} <Text style={styles.bannerUnit}>kg CO₂ avoided</Text>
-          </Text>
-          <Text style={styles.bannerSub}>
-            in {monthLabel(nowMs)} · {money(savedMoney)} saved
-          </Text>
-        </View>
-        {averageScore === null ? null : <Chip>Avg score {averageScore}</Chip>}
-      </View>
-
-      <Card>
-        <View style={styles.rowBetween}>
-          <Label>Recent sessions</Label>
-          <Text style={styles.month}>{monthLabel(nowMs)}</Text>
-        </View>
-
+    <Screen hero={hero}>
+      <Section label="Recent sessions" aside={<Text style={type.caption}>{monthLabel(nowMs)}</Text>} first>
         {rows === null ? (
-          <ActivityIndicator color={theme.green} style={{ marginVertical: theme.space(6) }} />
+          <ActivityIndicator color={theme.canopy} style={{ marginVertical: theme.space(6) }} />
         ) : rows.length === 0 ? (
-          <Text style={styles.empty}>Nothing yet. Your first session will show up here with its Green Score.</Text>
+          <Text style={type.body}>Nothing yet. Your first session will show up here with its Green Score.</Text>
         ) : (
-          rows.map((row, index) => {
+          rows.map((row) => {
             const stamp = dayStamp(row.pluggedInMs);
             return (
-              <View key={row.id}>
-                {index > 0 ? <Divider /> : <View style={{ height: theme.space(2) }} />}
-                <View style={styles.row}>
-                  <View style={styles.stamp}>
-                    <Text style={styles.stampDay}>{stamp.day}</Text>
-                    <Text style={styles.stampMonth}>{stamp.month}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rowTitle}>
-                      {siteName(row.siteId)} · {MODE_COPY[row.mode]?.title ?? row.mode}
-                    </Text>
-                    <Text style={styles.rowFacts}>
-                      {kwh(row.energyDeliveredKwh)}
-                      {row.report
-                        ? ` · ${percent(row.report.renewableShare)} renewable`
-                        : row.status === 'aborted'
-                          ? ' · interrupted, not scored'
-                          : ' · in progress'}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.scoreValue}>{row.report ? Math.round(row.report.greenScore) : '—'}</Text>
-                    <Text style={styles.scoreLabel}>Green Score</Text>
-                  </View>
+              <View key={row.id} style={styles.row}>
+                <View style={styles.stamp}>
+                  <Text style={styles.stampDay}>{stamp.day}</Text>
+                  <Text style={styles.stampMonth}>{stamp.month}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={type.strong}>
+                    {siteName(row.siteId)}, {(MODE_COPY[row.mode]?.title ?? row.mode).toLowerCase()}
+                  </Text>
+                  <Text style={type.caption}>
+                    {kwh(row.energyDeliveredKwh)}
+                    {row.report
+                      ? `, ${percent(row.report.renewableShare)} renewable${row.report.verified ? ', meter-verified' : ', estimated'}`
+                      : row.status === 'aborted'
+                        ? ', interrupted and not scored'
+                        : ', still charging'}
+                  </Text>
+                </View>
+                <View style={styles.score}>
+                  <Text style={styles.scoreValue}>{row.report ? Math.round(row.report.greenScore) : '--'}</Text>
+                  <Text style={styles.scoreLabel}>Green Score</Text>
                 </View>
               </View>
             );
           })
         )}
-      </Card>
+      </Section>
 
       {forecast?.greenWindow ? (
-        <DeepCard>
-          <Text style={styles.bestLabel}>Your best time to plug in</Text>
-          <Text style={styles.bestValue}>
-            {weekday(forecast.greenWindow.startMs)} · {clockTime(forecast.greenWindow.startMs)}–
-            {clockTime(forecast.greenWindow.endMs)}
+        <Section label="Your best time to plug in">
+          <Text style={type.title}>
+            {weekday(forecast.greenWindow.startMs)}, {clockTime(forecast.greenWindow.startMs)} to {clockTime(forecast.greenWindow.endMs)}
           </Text>
-          <View style={{ marginTop: theme.space(3) }}>
-            <Chip tone="lime">{percent(forecast.greenWindow.avgRenewableShare)} renewable in that window</Chip>
-          </View>
-        </DeepCard>
+          <Text style={[type.caption, { marginTop: theme.space(1) }]}>{percent(forecast.greenWindow.avgRenewableShare)} renewable in that window.</Text>
+        </Section>
       ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
+  head: { paddingHorizontal: theme.space(5), paddingTop: theme.space(5), paddingBottom: theme.space(4) },
+  bandEyebrow: { ...type.eyebrow, color: theme.onForestMuted },
+  bandFigures: { flexDirection: 'row', gap: theme.space(3), marginTop: theme.space(3) },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space(3),
-    backgroundColor: theme.limeSoft,
-    borderRadius: theme.radius,
-    padding: theme.space(4),
-    marginBottom: theme.space(3),
+    paddingVertical: theme.space(3),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.rule,
   },
-  bannerValue: { fontSize: 27, fontWeight: '800', color: theme.deep, fontVariant: ['tabular-nums'] },
-  bannerUnit: { fontSize: 13, fontWeight: '600', color: theme.ink },
-  bannerSub: { fontSize: 12.5, color: theme.muted, marginTop: 2 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  month: { fontSize: 12, color: theme.faint },
-  empty: { fontSize: 13, color: theme.muted, marginTop: theme.space(2), lineHeight: 19 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: theme.space(3) },
-  stamp: { width: 34, alignItems: 'center' },
-  stampDay: { fontSize: 16, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
-  stampMonth: { fontSize: 10.5, color: theme.faint, textTransform: 'uppercase' },
-  rowTitle: { fontSize: 14.5, fontWeight: '600', color: theme.ink },
-  rowFacts: { fontSize: 12, color: theme.muted, marginTop: 1, fontVariant: ['tabular-nums'] },
-  scoreValue: { fontSize: 16, fontWeight: '700', color: theme.green, fontVariant: ['tabular-nums'] },
-  scoreLabel: { fontSize: 10, color: theme.faint },
-  bestLabel: { fontSize: 12.5, color: theme.mutedOnDeep },
-  bestValue: { fontSize: 19, fontWeight: '700', color: theme.inkOnDeep, marginTop: 2 },
+  stamp: { width: 38, alignItems: 'center' },
+  stampDay: { fontFamily: fonts.serif, fontSize: 20, lineHeight: 27, color: theme.forest },
+  stampMonth: { fontFamily: fonts.sansSemiBold, fontSize: 10.5, color: theme.pebble, textTransform: 'uppercase' },
+  score: { alignItems: 'flex-end' },
+  scoreValue: { fontFamily: fonts.serif, fontSize: 22, lineHeight: 30, color: theme.canopyInk },
+  scoreLabel: { fontFamily: fonts.sans, fontSize: 10.5, color: theme.pebble },
 });

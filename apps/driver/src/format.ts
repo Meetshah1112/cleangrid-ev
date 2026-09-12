@@ -38,6 +38,28 @@ export function localHour(ms: number): number {
   return Number(parts);
 }
 
+/**
+ * A time as short as an axis label can be: "10 am" where the site reads a 12-hour clock, "10:00"
+ * where it reads 24-hour. The full "10:00 am" is too wide for a phone's time axis.
+ */
+export function axisTime(ms: number): string {
+  const twelve = new Intl.DateTimeFormat(locale, { timeZone: timezone, hour: 'numeric' }).resolvedOptions().hour12 === true;
+  return twelve
+    ? // Intl separates "10" from "am" with a narrow no-break space, which some Android fonts draw as a box.
+      new Intl.DateTimeFormat(locale, { timeZone: timezone, hour: 'numeric' }).format(new Date(ms)).replace(/[  ]/g, ' ').toLowerCase()
+    : clockTime(ms);
+}
+
+/** The local hour with minutes as a fraction, for placing a moment in a drawn day. */
+export function localHourExact(ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(
+    new Date(ms),
+  );
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0);
+  return hour + minute / 60;
+}
+
 export const money = (value: number): string =>
   new Intl.NumberFormat(locale, {
     style: 'currency',

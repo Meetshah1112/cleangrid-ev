@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import {
   api,
   getDriverId,
@@ -33,7 +34,18 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { Notice, TabBar, type Tab } from './src/components/ui';
-import { theme } from './src/theme';
+import { fonts, theme } from './src/theme';
+
+/**
+ * The four faces the app draws with, loaded from the files themselves rather than the packages'
+ * index, which would bundle every weight of both families.
+ */
+const FONT_FILES = {
+  [fonts.serif]: require('@expo-google-fonts/hedvig-letters-serif/400Regular/HedvigLettersSerif_400Regular.ttf'),
+  [fonts.sans]: require('@expo-google-fonts/schibsted-grotesk/400Regular/SchibstedGrotesk_400Regular.ttf'),
+  [fonts.sansSemiBold]: require('@expo-google-fonts/schibsted-grotesk/600SemiBold/SchibstedGrotesk_600SemiBold.ttf'),
+  [fonts.sansBold]: require('@expo-google-fonts/schibsted-grotesk/700Bold/SchibstedGrotesk_700Bold.ttf'),
+};
 
 /**
  * Four tabs and no navigation library: the app is small enough that which screen shows follows from
@@ -47,6 +59,7 @@ const TICK_MS = 1_000;
 type HistoryRow = Session & { report: Report | null };
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
   const [tab, setTab] = useState<Tab>('home');
   const [driverName, setDriverName] = useState<string>(getDriverId());
   const [defaultMode, setDefaultMode] = useState<ChargingMode>('balanced');
@@ -187,7 +200,7 @@ export default function App() {
   };
 
   const body = (): React.ReactNode => {
-    if (loading) return <ActivityIndicator color={theme.green} style={{ marginTop: 96 }} />;
+    if (loading) return <ActivityIndicator color={theme.canopy} style={{ marginTop: 96 }} />;
     if (finished) return <SummaryScreen report={finished} onDone={() => setFinished(null)} />;
 
     if (tab === 'history') {
@@ -273,6 +286,16 @@ export default function App() {
     );
   };
 
+  // Hold the first frame on the splash's paper until the faces are in, so nothing is laid out in a fallback
+  // font and then jumps. A font that fails to load is no reason to show nothing: carry on without it.
+  if (!fontsLoaded && !fontError) {
+    return (
+      <View style={[styles.app, styles.splash]}>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.app}>
       <StatusBar style="dark" />
@@ -280,7 +303,7 @@ export default function App() {
         {/* A jury must never mistake the built-in snapshot for a live measurement. */}
         {demo ? (
           <View style={styles.errorWrap}>
-            <Notice>
+            <Notice tone="warn">
               Demo data. No CleanGrid server is reachable from this phone, so these figures come from a built-in
               snapshot rather than from live chargers.
             </Notice>
@@ -288,8 +311,8 @@ export default function App() {
         ) : null}
         {error && !demo ? (
           <View style={styles.errorWrap}>
-            <Notice tone="red">
-              {error} — check that the phone and the server are on the same network.
+            <Notice tone="risk">
+              {error}. Check that the phone and the server are on the same network.
             </Notice>
           </View>
         ) : null}
@@ -307,7 +330,8 @@ export default function App() {
 const TOP_INSET = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: theme.bg, paddingTop: TOP_INSET },
+  app: { flex: 1, backgroundColor: theme.paper, paddingTop: TOP_INSET },
+  splash: { backgroundColor: theme.paper },
   body: { flex: 1 },
   errorWrap: { paddingHorizontal: theme.space(5), paddingTop: theme.space(3) },
 });

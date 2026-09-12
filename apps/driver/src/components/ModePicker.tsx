@@ -1,14 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChargingMode, ModePreview } from '../api';
 import { clockTime, money, percent } from '../format';
-import { MODE_COPY, theme } from '../theme';
+import { MODE_COLOUR, MODE_COPY, fonts, theme, type } from '../theme';
 import { Icon, type IconName } from './Icon';
 
-const ORDER: ChargingMode[] = ['cheapest', 'greenest', 'fastest', 'balanced'];
+const ORDER: ChargingMode[] = ['greenest', 'cheapest', 'balanced', 'fastest'];
 
 /**
- * The four modes as a 2x2 grid. Each card carries the estimate from the same scheduler that will
- * run the session, so the preview and the outcome cannot drift apart.
+ * The four modes as a two-by-two grid. Each carries the estimate from the same scheduler that will
+ * run the session, so the preview and the outcome cannot drift apart. The chosen one turns forest,
+ * the way a pressed choice does in the console.
  */
 export function ModePicker({
   mode,
@@ -27,6 +28,8 @@ export function ModePicker({
         const copy = MODE_COPY[key];
         const preview = byMode.get(key);
         const selected = key === mode;
+        const ink = selected ? theme.paper : theme.forest;
+        const soft = selected ? 'rgba(252,253,251,0.72)' : theme.stone;
         return (
           <Pressable
             key={key}
@@ -40,26 +43,24 @@ export function ModePicker({
             }
             style={({ pressed }) => [styles.cell, selected && styles.cellOn, pressed && styles.cellPressed]}
           >
-            <View style={[styles.glyphWrap, selected && styles.glyphWrapOn]}>
-              <Icon name={key as IconName} size={18} color={theme.green} />
+            <View style={styles.cellHead}>
+              <Icon name={key as IconName} size={18} color={selected ? theme.lime : (MODE_COLOUR[key] ?? theme.forest)} />
+              <Text style={[styles.cellTitle, { color: ink }]}>{copy?.title}</Text>
             </View>
-            <Text style={styles.cellTitle}>{copy?.title}</Text>
-            <Text style={styles.cellBlurb}>{copy?.blurb}</Text>
+            <Text style={[type.caption, { color: soft, fontSize: 12 }]}>{copy?.blurb}</Text>
             {preview ? (
               <>
-                <Text style={styles.cellCost}>{money(preview.cost)}</Text>
-                <Text style={styles.cellFacts}>
-                  {preview.co2Kg.toFixed(1)} kg · {percent(preview.renewableShare)} clean
+                <Text style={[styles.cellCost, { color: ink }]}>{money(preview.cost)}</Text>
+                <Text style={[styles.cellFacts, { color: soft }]}>
+                  {preview.co2Kg.toFixed(1)} kg, {percent(preview.renewableShare)} clean
                 </Text>
-                <Text style={styles.cellFacts}>
-                  {preview.finishByMs ? `done ${clockTime(preview.finishByMs)}` : 'will not finish'}
-                </Text>
+                <Text style={[styles.cellFacts, { color: soft }]}>{preview.finishByMs ? `done by ${clockTime(preview.finishByMs)}` : 'will not finish'}</Text>
                 {preview.shortfallKwh > 0.1 ? (
-                  <Text style={styles.shortfall}>{preview.shortfallKwh.toFixed(1)} kWh short</Text>
+                  <Text style={[styles.shortfall, selected && { color: '#ffbfae' }]}>{preview.shortfallKwh.toFixed(1)} kWh short</Text>
                 ) : null}
               </>
             ) : (
-              <Text style={styles.cellFacts}>estimating…</Text>
+              <Text style={[styles.cellFacts, { color: soft, marginTop: theme.space(3) }]}>Estimating</Text>
             )}
           </Pressable>
         );
@@ -72,29 +73,18 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   cell: {
     width: '48.5%',
-    backgroundColor: theme.card,
-    borderRadius: theme.radiusSmall,
-    borderWidth: 1.5,
-    borderColor: theme.line,
-    padding: theme.space(3),
+    backgroundColor: theme.mist,
+    borderRadius: theme.radiusPanel - 6,
+    padding: theme.space(4),
     marginBottom: theme.space(3),
+    gap: 2,
   },
-  cellOn: { borderColor: theme.green, backgroundColor: theme.greenSoft },
+  cellOn: { backgroundColor: theme.forest },
   // Opacity only: a transform here would shift the neighbouring cards on every tap.
   cellPressed: { opacity: 0.75 },
-  glyphWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: theme.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.space(2),
-  },
-  glyphWrapOn: { backgroundColor: '#ffffff' },
-  cellTitle: { fontSize: 15.5, fontWeight: '700', color: theme.ink },
-  cellBlurb: { fontSize: 12, color: theme.muted, marginTop: 1 },
-  cellCost: { fontSize: 17, fontWeight: '700', color: theme.ink, marginTop: theme.space(2), fontVariant: ['tabular-nums'] },
-  cellFacts: { fontSize: 11.5, color: theme.muted, marginTop: 1, fontVariant: ['tabular-nums'] },
-  shortfall: { fontSize: 11.5, color: theme.red, marginTop: 2 },
+  cellHead: { flexDirection: 'row', alignItems: 'center', gap: theme.space(2), marginBottom: 2 },
+  cellTitle: { fontFamily: fonts.sansSemiBold, fontSize: 15.5 },
+  cellCost: { fontFamily: fonts.serif, fontSize: 22, lineHeight: 30, marginTop: theme.space(2) },
+  cellFacts: { fontFamily: fonts.sans, fontSize: 12, lineHeight: 17 },
+  shortfall: { fontFamily: fonts.sansSemiBold, fontSize: 12, color: theme.coralInk, marginTop: 2 },
 });

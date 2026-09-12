@@ -1,22 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { ChargingMode, CurrentSession, Forecast, SiteSummary, Vehicle } from '../api';
 import { clockTime, countdown, kwh, localHour, percent } from '../format';
-import { MODE_COPY, carbonColor, greeting, theme } from '../theme';
-import {
-  Button,
-  Card,
-  CarbonStrip,
-  CarGlyph,
-  Chip,
-  DeepCard,
-  Label,
-  Screen,
-  StatTile,
-} from '../components/ui';
+import { MODE_COPY, carbonColor, greeting, theme, type } from '../theme';
+import { Valley } from '../components/Valley';
+import { ForecastRidge } from '../components/ValleyLayers';
+import { Button, Figure, ForestBand, Screen, Section, Status } from '../components/ui';
+
+const HOUR = 3_600_000;
 
 /**
- * Home answers the only question that matters before any of the others: will my car be ready,
- * and is the scheduler doing anything about it right now.
+ * Home answers the question that comes before all the others: will my car be ready, and is the
+ * scheduler doing anything about it right now. The valley above is the site's next day, with the
+ * renewable forecast standing on its meadow and the cleanest window drawn brighter.
  */
 export function HomeScreen({
   driverName,
@@ -46,140 +41,114 @@ export function HomeScreen({
   const shareNow = forecast?.renewableShare[0] ?? null;
   const soc = current?.socPercent ?? null;
   const waiting = session !== null && session.currentPowerKw <= 0.05;
+  const charged = session !== null && (current?.remainingKwh ?? 0) <= 0.05;
+  const frameStart = Math.floor(nowMs / HOUR) * HOUR - 3 * HOUR;
+  const frameSpan = 24 * HOUR;
+  const modeName = (mode: string): string => MODE_COPY[mode]?.title ?? mode;
+
+  const hero = (
+    <>
+      <Valley
+        startMs={frameStart}
+        spanMs={frameSpan}
+        nowMs={nowMs}
+        height={360}
+        horizon={0.6}
+        layers={(geometry) => (forecast ? <ForecastRidge forecast={forecast} geometry={geometry} startMs={frameStart} spanMs={frameSpan} /> : null)}
+      >
+        {(geometry) => (
+          <View style={styles.heroCopy}>
+            <Text style={[type.eyebrow, { color: geometry.tone === 'light' ? theme.onForestMuted : theme.stone }]}>
+              {greeting(localHour(nowMs))}, {driverName.split(' ')[0]}
+            </Text>
+            <Text style={[type.display, styles.heroTitle, geometry.tone === 'light' && styles.onSky]} accessibilityRole="header" textBreakStrategy="balanced">
+              {session ? (charged ? 'Your EV is ready.' : waiting ? 'Your EV is plugged in.' : 'Your EV is charging.') : 'Let the sun set the schedule.'}
+            </Text>
+          </View>
+        )}
+      </Valley>
+
+      <ForestBand>
+        <View style={styles.bandHead}>
+          <Text style={styles.bandTitle}>{session ? `Ready by ${clockTime(session.deadlineMs)}` : 'Nothing plugged in'}</Text>
+          {session ? (
+            <Status tone={session.deadlineRisk ? 'risk' : 'onForest'}>{session.deadlineRisk ? 'At risk' : 'Guaranteed'}</Status>
+          ) : null}
+        </View>
+        <Text style={styles.bandSub}>
+          {session
+            ? charged
+              ? `Charged. Free to leave any time before ${clockTime(session.deadlineMs)}.`
+              : waiting
+              ? `${modeName(session.mode)} plan is on, holding for a better hour.`
+              : `Charging at ${session.currentPowerKw.toFixed(1)} kW on ${modeName(session.mode).toLowerCase()}.`
+            : `${vehicle?.label ?? 'Your car'} at ${site?.name ?? 'your site'}. ${modeName(defaultMode)} when you plug in.`}
+        </Text>
+        {session ? (
+          <View style={styles.bandFigures}>
+            <Figure onForest accent={theme.lime} value={soc === null ? kwh(session.energyDeliveredKwh) : percent(soc)} label={soc === null ? 'delivered so far' : 'current charge'} />
+            <Figure onForest value={kwh(current?.remainingKwh ?? 0)} label="still needed" />
+          </View>
+        ) : null}
+      </ForestBand>
+    </>
+  );
 
   return (
-    <Screen>
-      <View style={styles.head}>
-        <Text style={styles.greeting}>
-          {greeting(localHour(nowMs))}, {driverName.split(' ')[0]}
-        </Text>
-        <Text style={styles.headline}>
-          {session ? (waiting ? 'Your EV is plugged in.' : 'Your EV is charging.') : 'Ready when you are.'}
-        </Text>
-      </View>
-
-      <DeepCard style={styles.hero}>
-        <CarGlyph />
-        <Text style={styles.heroCar}>
-          {vehicle?.label ?? 'Your car'} · {site?.name ?? 'no site'}
-        </Text>
-        <View style={styles.heroRow}>
-          <Text style={styles.heroReady}>
-            {session ? `Ready by ${clockTime(session.deadlineMs)}` : 'Nothing plugged in'}
-          </Text>
-          <View style={styles.battery}>
-            <View style={[styles.batteryFill, { width: `${Math.max(6, (soc ?? 0.12) * 100)}%` }]} />
-          </View>
-        </View>
-
-        <View style={styles.heroStats}>
-          <StatTile
-            onDeep
-            value={soc === null ? (session ? kwh(session.energyDeliveredKwh) : '—') : percent(soc)}
-            label={soc === null ? 'Delivered so far' : 'Current charge'}
-          />
-          <View style={{ width: theme.space(2) }} />
-          <StatTile
-            onDeep
-            value={session ? `+${kwh(current?.remainingKwh ?? 0)}` : '—'}
-            label={session ? 'Still needed' : 'No request yet'}
-          />
-        </View>
-
-        <View style={{ marginTop: theme.space(4) }}>
-          <Chip tone="lime">
-            {session
-              ? waiting
-                ? `● ${MODE_COPY[session.mode]?.title ?? session.mode} plan is on`
-                : `● Charging at ${session.currentPowerKw.toFixed(1)} kW · ${MODE_COPY[session.mode]?.title ?? session.mode}`
-              : `○ Not charging · ${MODE_COPY[defaultMode]?.title ?? defaultMode} when you plug in`}
-          </Chip>
-        </View>
-      </DeepCard>
-
-      <Card>
-        <Label>Grid right now</Label>
+    <Screen hero={hero}>
+      <Section label="Grid right now" first>
         {carbonNow === null || !forecast ? (
-          <Text style={styles.muted}>Waiting for grid data…</Text>
+          <Text style={type.caption}>Waiting for grid data.</Text>
         ) : (
           <>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.big, { color: carbonColor(carbonNow) }]}>
-                {Math.round(carbonNow)} <Text style={styles.unit}>gCO₂/kWh</Text>
-              </Text>
-              <Text style={styles.share}>{percent(shareNow ?? 0)} renewable</Text>
-            </View>
-            <View style={{ marginTop: theme.space(3) }}>
-              <CarbonStrip
-                carbon={forecast.carbonGPerKwh}
-                startMs={forecast.startMs}
-                stepMinutes={forecast.stepMinutes}
-                highlightFrom={forecast.greenWindow?.startMs ?? null}
-                highlightTo={forecast.greenWindow?.endMs ?? null}
-              />
+            <View style={styles.gridRow}>
+              <Figure value={`${Math.round(carbonNow)} g`} label="CO₂ per kWh right now" accent={carbonColor(carbonNow)} size="large" />
+              <Figure value={percent(shareNow ?? 0)} label="renewable" accent={theme.canopyInk} size="large" />
             </View>
             {forecast.greenWindow ? (
-              <Text style={styles.window}>
-                Cleanest window {clockTime(forecast.greenWindow.startMs)}–{clockTime(forecast.greenWindow.endMs)},{' '}
-                {percent(forecast.greenWindow.avgRenewableShare)} renewable
+              <Text style={[type.body, styles.windowLine]}>
+                The cleanest stretch today runs {clockTime(forecast.greenWindow.startMs)} to {clockTime(forecast.greenWindow.endMs)}, at{' '}
+                {percent(forecast.greenWindow.avgRenewableShare)} renewable.
               </Text>
             ) : null}
           </>
         )}
-      </Card>
+      </Section>
 
       {session ? (
-        <>
-          <Card>
-            <Label>Your promise</Label>
-            <Text style={styles.promise}>
-              {kwh(session.energyDeliveredKwh)} of {kwh(session.energyNeededKwh)} delivered
-            </Text>
-            <Text style={styles.muted}>
-              {session.deadlineRisk
-                ? 'At risk — the site is constrained. We are giving you priority.'
-                : `Guaranteed by ${clockTime(session.deadlineMs)}, ${countdown(session.deadlineMs, nowMs)} from now.`}
-            </Text>
-          </Card>
-          <Button title="See the plan" tone="deep" onPress={onOpenPlan} />
-          {onStop ? (
-            <>
-              <View style={{ height: theme.space(2) }} />
-              <Button title="Stop and unplug" tone="quiet" onPress={onStop} />
-            </>
-          ) : null}
-        </>
+        <Section label="Your promise">
+          <Text style={type.subtitle}>
+            {kwh(session.energyDeliveredKwh)} of {kwh(session.energyNeededKwh)} delivered
+          </Text>
+          <Text style={[type.body, styles.promise]}>
+            {session.deadlineRisk
+              ? 'At risk: the site is short of room right now, so your car is being given priority.'
+              : `Guaranteed by ${clockTime(session.deadlineMs)}, ${countdown(session.deadlineMs, nowMs)} from now.`}
+          </Text>
+          <View style={styles.actions}>
+            <Button title="See the plan" onPress={onOpenPlan} />
+            {onStop ? <Button title="Stop and unplug" tone="quiet" onPress={onStop} /> : null}
+          </View>
+        </Section>
       ) : (
-        <Button title="Start a charging session" onPress={onStart} />
+        <View style={styles.actions}>
+          <Button title="Start a charging session" onPress={onStart} />
+        </View>
       )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  head: { marginBottom: theme.space(4) },
-  greeting: { fontSize: 14, color: theme.muted },
-  headline: { fontSize: 27, fontWeight: '700', color: theme.ink, letterSpacing: -0.6, marginTop: 2 },
-  hero: { paddingTop: theme.space(3) },
-  heroCar: { fontSize: 12.5, color: theme.mutedOnDeep, marginTop: theme.space(3) },
-  heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  heroReady: { flex: 1, fontSize: 20, fontWeight: '700', color: theme.inkOnDeep },
-  battery: {
-    width: 62,
-    height: 29,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: theme.lime,
-    padding: 3,
-    justifyContent: 'center',
-  },
-  batteryFill: { height: '100%', backgroundColor: theme.lime, borderRadius: 5 },
-  heroStats: { flexDirection: 'row', marginTop: theme.space(4) },
-  rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  big: { fontSize: 29, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  unit: { fontSize: 13, color: theme.muted, fontWeight: '500' },
-  share: { fontSize: 14, color: theme.green, fontWeight: '600' },
-  muted: { color: theme.muted, fontSize: 13, lineHeight: 19 },
-  window: { marginTop: theme.space(3), color: theme.ink, fontSize: 13.5, fontWeight: '600' },
-  promise: { fontSize: 17, fontWeight: '700', color: theme.ink, marginBottom: 4, fontVariant: ['tabular-nums'] },
+  heroCopy: { paddingHorizontal: theme.space(5), paddingTop: theme.space(5), gap: theme.space(2) },
+  heroTitle: { maxWidth: 320 },
+  onSky: { color: theme.onForest },
+  bandHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.space(3) },
+  bandTitle: { flex: 1, fontFamily: type.title.fontFamily, fontSize: 26, lineHeight: 34, color: theme.lime },
+  bandSub: { ...type.caption, color: theme.onForestMuted, marginTop: theme.space(1) },
+  bandFigures: { flexDirection: 'row', marginTop: theme.space(4), gap: theme.space(4) },
+  gridRow: { flexDirection: 'row', gap: theme.space(4) },
+  windowLine: { marginTop: theme.space(3), color: theme.stone },
+  promise: { marginTop: theme.space(1), color: theme.stone },
+  actions: { marginTop: theme.space(5), gap: theme.space(2) },
 });

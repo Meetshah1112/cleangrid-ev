@@ -3,24 +3,16 @@ import { StyleSheet, Text, View } from 'react-native';
 import { api, type ChargingMode, type CurrentSession, type Forecast, type ModePreview } from '../api';
 import { clockTime, countdown, kwh, money, percent } from '../format';
 import { cleanerBy, summarisePlan } from '../plan';
-import { theme } from '../theme';
+import { theme, type } from '../theme';
 import { ModePicker } from '../components/ModePicker';
-import {
-  Button,
-  Card,
-  CarbonStrip,
-  Chip,
-  Label,
-  Notice,
-  Screen,
-  ScreenHeader,
-  Stepper,
-  TextLink,
-} from '../components/ui';
+import { Valley } from '../components/Valley';
+import { PlanRibbon, planFrame } from '../components/ValleyLayers';
+import { Button, Figure, ForestBand, Notice, Screen, Section, Status, Stepper, TextLink } from '../components/ui';
 
 /**
  * The plan screen exists to make one claim inspectable: we moved your energy, we did not move your
- * deadline. Every number here is read back from the plan the optimiser actually dispatched.
+ * deadline. Every number here is read back from the plan the optimiser actually dispatched, and the
+ * valley above draws that plan across the hours it will happen in.
  */
 export function PlanScreen({
   current,
@@ -40,26 +32,25 @@ export function PlanScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
-   * The deadline being edited, which is not the same as the one in force.
-   *
-   * Moving it is the driver's half of the only conversation that matters here -- the app promises
-   * a time and the driver is the one who knows whether it is still the right time. Plans change
-   * after a car is plugged in, and until now the screen named the deadline in its own copy while
-   * offering no way to touch it: the operator could move it from the console and the person it
-   * belonged to could not.
-   *
-   * Held locally and sent on confirm rather than on every press, because each send re-solves the
-   * site and the deadline passes through unreachable values on its way down to a reachable one.
+   * The deadline being edited, which is not the same as the one in force. Held locally and sent on
+   * confirm rather than on every press, because each send re-solves the site and the deadline passes
+   * through unreachable values on its way down to a reachable one.
    */
   const [wanted, setWanted] = useState(session.deadlineMs);
   const summary = summarisePlan(current, forecast, nowMs);
+  const frame = planFrame(current, nowMs);
+  const charged = current.remainingKwh <= 0.05;
 
-  // Follow the session if it changes underneath, unless the driver is mid-edit.
+  // Follow the session if it changes underneath.
   useEffect(() => {
     setWanted(session.deadlineMs);
   }, [session.deadlineMs]);
 
   const loadPreviews = useCallback(() => {
+    if (current.remainingKwh <= 0.05) {
+      setPreviews(null);
+      return;
+    }
     void api
       .preview({
         energyKwh: Math.max(1, Math.round(current.remainingKwh)),
@@ -103,136 +94,123 @@ export function PlanScreen({
 
   const cleaner = summary ? cleanerBy(summary) : 0;
 
-  return (
-    <Screen>
-      <ScreenHeader
-        eyebrow="Tonight's intelligent plan"
-        title={
-          summary === null
-            ? 'Working out your plan.'
-            : summary.chargingNow
-              ? 'Charging while the grid is clean.'
-              : "We'll wait for cleaner power."
-        }
-        subtitle={
-          summary === null
-            ? 'The optimiser re-solves every few minutes; your plan appears as soon as it has run.'
-            : `Your deadline is protected. ${summary.chargingNow ? 'This is the cleanest window inside it.' : `Charging starts in ${countdown(summary.startMs, nowMs)}.`}`
-        }
-      />
-
-      {summary && forecast ? (
-        <>
-          <Card>
-            <Label>Best clean window</Label>
-            <CarbonStrip
-              carbon={forecast.carbonGPerKwh}
-              startMs={forecast.startMs}
-              stepMinutes={forecast.stepMinutes}
-              highlightFrom={summary.startMs}
-              highlightTo={summary.endMs}
-              height={30}
-            />
-            <View style={styles.rowBetween}>
-              <Text style={styles.claim}>Renewable share in your window {percent(summary.renewableShare)}</Text>
-              <Chip>{session.deadlineRisk ? 'At risk' : 'Guaranteed'}</Chip>
-            </View>
-          </Card>
-
-          <Card>
-            <Label>Scheduled charge</Label>
-            <View style={styles.rowBaseline}>
-              <Text style={styles.window}>
-                {clockTime(summary.startMs)} – {clockTime(summary.endMs)}
-              </Text>
-              <Text style={styles.windowEnergy}>{kwh(summary.energyKwh)}</Text>
-            </View>
-            <View style={styles.line}>
-              <Text style={styles.lineLabel}>Expected session cost</Text>
-              <Text style={styles.lineValue}>{money(summary.cost)}</Text>
-            </View>
-            <View style={styles.line}>
-              <Text style={styles.lineLabel}>If you charged right now</Text>
-              <Text style={[styles.lineValue, styles.strike]}>{money(summary.baselineCost)}</Text>
-            </View>
-            <Text style={styles.footnote}>
-              {cleaner > 0.01
-                ? `Your plan moves ${kwh(summary.energyKwh)} into hours ${percent(cleaner)} cleaner than charging now, without changing when you leave.`
-                : 'The grid is flat across your window, so charging now is already the clean choice.'}
+  const hero = (
+    <>
+      <Valley
+        startMs={frame.startMs}
+        spanMs={frame.spanMs}
+        nowMs={nowMs}
+        height={360}
+        horizon={0.6}
+        layers={(geometry) => <PlanRibbon current={current} geometry={geometry} startMs={frame.startMs} spanMs={frame.spanMs} />}
+      >
+        {(geometry) => (
+          <View style={styles.heroCopy}>
+            <Text style={[type.eyebrow, { color: geometry.tone === 'light' ? theme.onForestMuted : theme.stone }]}>Your intelligent plan</Text>
+            <Text style={[type.display, geometry.tone === 'light' && { color: theme.onForest }]} accessibilityRole="header" textBreakStrategy="balanced">
+              {charged
+                ? 'Charged and ready.'
+                : summary === null
+                  ? 'Working out your plan.'
+                  : summary.chargingNow
+                    ? 'Charging while the grid is clean.'
+                    : 'Waiting for cleaner power.'}
             </Text>
-          </Card>
-        </>
-      ) : (
-        <Card>
-          <Text style={styles.muted}>
-            No plan yet for this session. It appears after the next solve — usually within a minute.
-          </Text>
-        </Card>
-      )}
+          </View>
+        )}
+      </Valley>
 
-      <View style={{ marginTop: theme.space(3), marginBottom: theme.space(2) }}>
-        <Label>When do you need it?</Label>
-        <Text style={styles.muted}>
+      <ForestBand>
+        {summary ? (
+          <>
+            <View style={styles.bandHead}>
+              <Text style={styles.bandTitle}>
+                {clockTime(summary.startMs)} to {clockTime(summary.endMs)}
+              </Text>
+              <Status tone={session.deadlineRisk ? 'risk' : 'onForest'}>{session.deadlineRisk ? 'At risk' : 'Guaranteed'}</Status>
+            </View>
+            <Text style={styles.bandSub}>
+              {summary.chargingNow
+                ? `Your deadline is protected, and this is the cleanest window inside it.`
+                : `Your deadline is protected. Charging starts in ${countdown(summary.startMs, nowMs)}.`}
+            </Text>
+            <View style={styles.bandFigures}>
+              <Figure size="small" onForest accent={theme.lime} value={kwh(summary.energyKwh)} label="scheduled" />
+              <Figure size="small" onForest value={money(summary.cost)} label={`vs ${money(summary.baselineCost)} charging now`} />
+              <Figure size="small" onForest value={percent(summary.renewableShare)} label="renewable" />
+            </View>
+          </>
+        ) : (
+          <Text style={styles.bandSub}>
+            {charged
+              ? `Your car has the ${kwh(session.energyNeededKwh)} it asked for. Nothing is left to schedule before ${clockTime(session.deadlineMs)}.`
+              : 'No plan yet for this session. It appears after the next solve, usually within a minute.'}
+          </Text>
+        )}
+      </ForestBand>
+    </>
+  );
+
+  return (
+    <Screen hero={hero}>
+      {summary ? (
+        <Text style={[type.body, styles.claim]}>
+          {cleaner > 0.01
+            ? `Your plan moves ${kwh(summary.energyKwh)} into hours ${percent(cleaner)} cleaner than charging now, without changing when you leave.`
+            : 'The grid is flat across your window, so charging now is already the clean choice.'}
+        </Text>
+      ) : null}
+
+      <Section label="When do you need it?">
+        <Text style={[type.caption, styles.gapBelow]}>
           {moved
             ? `Currently promised for ${clockTime(session.deadlineMs)}. Confirm to move it.`
             : 'Move this and the plan re-solves around the new time. Your car still gets what you asked for.'}
         </Text>
-      </View>
-      <Stepper
-        value={wanted}
-        onChange={setWanted}
-        step={30 * 60_000}
-        min={nowMs + 20 * 60_000}
-        max={nowMs + 36 * 60 * 60_000}
-        format={(value) => clockTime(value)}
-        label="time"
-      />
-      {moved ? (
-        <Button
-          title={busy ? 'Asking…' : `Move my deadline to ${clockTime(wanted)}`}
-          tone="deep"
-          onPress={saveDeadline}
-          disabled={busy}
+        <Stepper
+          value={wanted}
+          onChange={setWanted}
+          step={30 * 60_000}
+          min={nowMs + 20 * 60_000}
+          max={nowMs + 36 * 60 * 60_000}
+          format={(value) => clockTime(value)}
+          label="time"
         />
-      ) : null}
+        {moved ? (
+          <View style={styles.gapAbove}>
+            <Button title={busy ? 'Asking' : `Move my deadline to ${clockTime(wanted)}`} onPress={saveDeadline} disabled={busy} />
+          </View>
+        ) : null}
+      </Section>
 
-      <View style={{ marginTop: theme.space(3), marginBottom: theme.space(2) }}>
-        <Label>What matters most?</Label>
-        <Text style={styles.muted}>
+      <Section label="What matters most?">
+        <Text style={[type.caption, styles.gapBelow]}>
           Used inside your {clockTime(session.deadlineMs)} deadline. Changing it re-solves the plan immediately.
         </Text>
-      </View>
-      {error ? <Notice tone="red">{error}</Notice> : null}
-      <View style={{ height: theme.space(3) }} />
-      <ModePicker mode={session.mode} onChange={switchMode} previews={previews} />
+        {error ? <Notice tone="risk">{error}</Notice> : null}
+        {charged ? (
+          <Text style={type.body}>Your car is already charged, so there is nothing for a preference to change on this session.</Text>
+        ) : (
+          <ModePicker mode={session.mode} onChange={switchMode} previews={previews} />
+        )}
+      </Section>
 
-      <Button title="Keep this plan" tone="deep" onPress={onDone} />
-      <TextLink title="Back to home" onPress={onDone} />
+      <View style={styles.actions}>
+        <Button title="Keep this plan" onPress={onDone} />
+        <TextLink title="Back to home" onPress={onDone} />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: theme.space(3),
-    gap: theme.space(2),
-  },
-  rowBaseline: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  claim: { flex: 1, fontSize: 13.5, color: theme.ink, fontWeight: '600' },
-  window: { fontSize: 21, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
-  windowEnergy: { fontSize: 14, color: theme.muted, fontVariant: ['tabular-nums'] },
-  line: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginTop: theme.space(3),
-  },
-  lineLabel: { fontSize: 13.5, color: theme.muted },
-  lineValue: { fontSize: 15.5, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
-  strike: { textDecorationLine: 'line-through', color: theme.faint, fontWeight: '600' },
-  footnote: { marginTop: theme.space(3), fontSize: 12.5, color: theme.muted, lineHeight: 18 },
-  muted: { fontSize: 13, color: theme.muted, lineHeight: 19 },
+  heroCopy: { paddingHorizontal: theme.space(5), paddingTop: theme.space(5), gap: theme.space(2) },
+  bandHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.space(3) },
+  bandTitle: { flex: 1, fontFamily: type.title.fontFamily, fontSize: 26, lineHeight: 34, color: theme.lime },
+  bandSub: { ...type.caption, color: theme.onForestMuted, marginTop: theme.space(1) },
+  bandFigures: { flexDirection: 'row', marginTop: theme.space(4), gap: theme.space(3) },
+  claim: { color: theme.stone, marginTop: theme.space(1) },
+  gapBelow: { marginBottom: theme.space(3) },
+  gapAbove: { marginTop: theme.space(3) },
+  actions: { marginTop: theme.space(6), gap: theme.space(1) },
 });
