@@ -111,7 +111,8 @@ function ImpactBody({
           {finished.length === 0 ? (
             <p className="empty">No completed sessions yet.</p>
           ) : (
-            <table className="data">
+            <div className="scroll-x">
+      <table className="data">
               <thead>
                 <tr>
                   <th>session</th>
@@ -131,6 +132,7 @@ function ImpactBody({
                 ))}
               </tbody>
             </table>
+      </div>
           )}
           <p className="note" style={{ marginTop: 12 }}>
             How it is calculated: energy between meter readings, weighted by grid carbon intensity at the moment it was

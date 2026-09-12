@@ -20,7 +20,8 @@ export function SessionsTable({
   if (rows.length === 0) return <p className="empty">Nothing plugged in right now.</p>;
 
   return (
-    <table className="data">
+    <div className="scroll-x">
+      <table className="data">
       <thead>
         <tr>
           <th>driver</th>
@@ -70,5 +71,6 @@ export function SessionsTable({
         })}
       </tbody>
     </table>
+      </div>
   );
 }

@@ -68,17 +68,25 @@ export const api = {
 export const gridApi = {
   sites: () => request<GridSite[]>('/grid/sites', undefined, gridOperator),
   events: (siteId: string) => request<FlexEvent[]>(`/grid/flex-events?siteId=${siteId}`, undefined, gridOperator),
-  /** Ask a site to hold below a share of its connection for a while. */
+  /**
+   * Ask a site to cut what it is drawing, for a while.
+   *
+   * The reduction is a share of current draw, not of the connection. A site running at half its
+   * connection would be handed a "40% reduction" that asks for nothing at all, which is not what a
+   * network operator means when they need load off the feeder now.
+   */
   requestReduction: (input: {
     siteId: string;
     reductionPct: number;
     hours: number;
+    drawKw: number;
     connectionKw: number;
     nowMs: number;
   }) => {
     const startsAt = new Date(input.nowMs + 60_000).toISOString();
     const endsAt = new Date(input.nowMs + 60_000 + input.hours * 3_600_000).toISOString();
-    const capKw = Math.round(input.connectionKw * (1 - input.reductionPct / 100) * 10) / 10;
+    const from = input.drawKw > 0.5 ? input.drawKw : input.connectionKw;
+    const capKw = Math.round(from * (1 - input.reductionPct / 100) * 10) / 10;
     return request<FlexEvent>(
       '/grid/flex-events',
       {
@@ -88,7 +96,7 @@ export const gridApi = {
           startsAt,
           endsAt,
           capKw,
-          reason: `network constraint: hold ${input.reductionPct}% below the connection`,
+          reason: `network constraint: ${input.reductionPct}% below the ${Math.round(from)} kW the site was drawing`,
         }),
       },
       gridOperator,

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bays } from '../components/Bays';
 import { Console } from '../components/Console';
 import { DemandChart } from '../components/DemandChart';
 import { SessionsTable } from '../components/SessionsTable';
+import { SiteMap } from '../components/SiteMap';
 import { api } from '../lib/api';
 import { carbonLabel, carbonColor, clockTime, kw, money, percent } from '../lib/format';
 import type { Impact } from '../lib/types';
@@ -39,38 +39,45 @@ export default function OverviewPage() {
                 : 'Waiting for the first plan.'}
             </p>
 
-            <div className="grid kpis">
-              <div className="card kpi">
-                <div className="label">Charging now</div>
-                <div className="value">
+            {/* One instrument rail rather than four floating cards: an operator reads these
+                together, and four identical boxes make none of them the important one. */}
+            <div className="rail">
+              <div className="rail-cell">
+                <span className="rail-label">Charging now</span>
+                <span className="rail-value">
                   {overview?.carsCharging ?? '--'}
-                  <small>/ {overview?.carsPluggedIn ?? '--'} plugged in</small>
-                </div>
-                <div className="sub">{overview ? `${overview.chargersOnline} of ${overview.chargersTotal} bays online` : ''}</div>
-              </div>
-
-              <div className="card kpi">
-                <div className="label">Site load</div>
-                <div className="value">
-                  {kw(overview?.siteDemandKw)}
-                  <small>kW</small>
-                </div>
-                <div className="sub">
-                  {overview ? `${kw(overview.headroomKw)} kW under the ${kw(overview.gridConnectionKw, 0)} kW cap` : ''}
-                </div>
-                <span className="bar">
-                  <i className={used > 0.95 ? 'bad' : used > 0.8 ? 'warn' : ''} style={{ width: `${Math.min(100, used * 100)}%` }} />
+                  <small>of {overview?.carsPluggedIn ?? '--'} plugged in</small>
+                </span>
+                <span className="rail-sub">
+                  {overview ? `${overview.chargersOnline} of ${overview.chargersTotal} bays online` : ''}
                 </span>
               </div>
 
-              <div className="card kpi">
-                <div className="label">Renewable share</div>
-                <div className="value" style={{ color: overview ? carbonColor(overview.carbonGPerKwh) : undefined }}>
+              <div className="rail-cell is-wide">
+                <span className="rail-label">Site load</span>
+                <span className="rail-value">
+                  {kw(overview?.siteDemandKw)}
+                  <small>kW of {kw(overview?.gridConnectionKw, 0)}</small>
+                </span>
+                <span className="gauge" aria-hidden="true">
+                  <span
+                    className={`gauge-fill${used > 0.95 ? ' is-bad' : used > 0.8 ? ' is-warn' : ''}`}
+                    style={{ width: `${Math.max(2, Math.min(100, used * 100))}%` }}
+                  />
+                </span>
+                <span className="rail-sub">
+                  {overview ? `${kw(overview.headroomKw)} kW of headroom` : ''}
+                </span>
+              </div>
+
+              <div className="rail-cell">
+                <span className="rail-label">Renewable share</span>
+                <span className="rail-value" style={{ color: overview ? carbonColor(overview.carbonGPerKwh) : undefined }}>
                   {percent(overview?.renewableShare)}
-                </div>
-                <div className="sub">
+                </span>
+                <span className="rail-sub">
                   {overview ? `${Math.round(overview.carbonGPerKwh)} gCO2/kWh, ${carbonLabel(overview.carbonGPerKwh)}` : ''}
-                </div>
+                </span>
               </div>
 
               <TodaySaving siteId={site?.id ?? null} currency={site?.currency ?? 'GBP'} />
@@ -131,10 +138,10 @@ export default function OverviewPage() {
 
             <section className="card" style={{ marginTop: 14 }}>
               <div className="card-head">
-                <h2>Charger fleet</h2>
+                <h2>Live chargers</h2>
                 <span className="note">{site?.name}</span>
               </div>
-              <Bays chargers={live.chargers} sessions={live.sessions} nowMs={live.nowMs} />
+              <SiteMap chargers={live.chargers} sessions={live.sessions} siteName={site?.name ?? 'this site'} />
             </section>
 
             <section className="card" style={{ marginTop: 14 }}>
@@ -169,14 +176,14 @@ function TodaySaving({ siteId, currency }: { readonly siteId: string | null; rea
   }, [siteId]);
 
   return (
-    <div className="card kpi">
-      <div className="label">Saved so far</div>
-      <div className="value" style={{ color: 'var(--green)' }}>
+    <div className="rail-cell">
+      <span className="rail-label">Saved so far</span>
+      <span className="rail-value" style={{ color: 'var(--green)' }}>
         {impact ? money(impact.costSaved, currency) : '--'}
-      </div>
-      <div className="sub">
+      </span>
+      <span className="rail-sub">
         {impact ? `${impact.avoidedCo2Kg.toFixed(1)} kg CO2 avoided, ${impact.sessions} sessions` : 'against charging on plug-in'}
-      </div>
+      </span>
     </div>
   );
 }

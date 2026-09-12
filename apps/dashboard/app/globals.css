@@ -120,10 +120,12 @@ a {
   font-weight: 600;
 }
 
-.sidebar nav a .glyph {
-  width: 16px;
-  text-align: center;
-  opacity: 0.9;
+.sidebar nav a .icon {
+  opacity: 0.85;
+}
+
+.sidebar nav a.active .icon {
+  opacity: 1;
 }
 
 .sidebar .who {
@@ -266,9 +268,11 @@ a {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 16px 18px;
 }
+
+/* Elevation is declared once. A border under a wide soft shadow is the ghost card, so the
+   shadow is kept for things that genuinely float above the page: menus and popovers. */
 
 .card h2 {
   margin: 0 0 12px;
@@ -343,7 +347,9 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* A span is inline by default, so height was ignored and the fill escaped its card. */
 .bar {
+  display: block;
   height: 5px;
   border-radius: 3px;
   background: var(--line);
@@ -779,4 +785,397 @@ button.btn[disabled] {
   .kpi .value {
     font-size: 22px;
   }
+}
+
+/* Browser surfaces ---------------------------------------------------------
+   The parts nobody draws still belong to the design: selection, caret, focus
+   ring, scrollbars, and the numerals in every column of figures. */
+
+::selection {
+  background: var(--green-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sidebar ::selection {
+  background: var(--sidebar-line);
+  color: #fff;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 8px;
+  border: 3px solid var(--bg);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+}
+
+/* Every figure in this console is read in a column; lining numerals keep them
+   in register and stop the layout twitching as values tick over. */
+.rail-value,
+.num,
+.kpi .value,
+table td,
+.plaza-readout {
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  flex: none;
+}
+
+/* Instrument rail ----------------------------------------------------------
+   One surface divided, rather than four identical cards floating apart. */
+
+.rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.rail-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 18px 17px;
+  border-left: 1px solid var(--line-soft);
+  min-width: 0;
+}
+
+.rail-cell:first-child {
+  border-left: 0;
+}
+
+.rail-cell.is-wide {
+  grid-column: span 1;
+}
+
+.rail-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rail-value {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rail-value small {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.rail-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* The load gauge sits inside its cell, which the old inline span did not. */
+.gauge {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line-soft);
+  overflow: hidden;
+  margin: 7px 0 4px;
+}
+
+.gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--green);
+  transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gauge-fill.is-warn {
+  background: var(--amber);
+}
+
+.gauge-fill.is-bad {
+  background: var(--red);
+}
+
+/* Plaza map ---------------------------------------------------------------- */
+
+.plaza svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.plaza-ground {
+  fill: var(--card-2);
+}
+
+.plaza-lane {
+  fill: var(--bg);
+}
+
+.plaza-stripe line {
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 5;
+}
+
+.plaza-bay rect {
+  stroke: var(--line);
+  stroke-width: 1.25;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 180ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.plaza-bay {
+  cursor: pointer;
+}
+
+.plaza-bay.is-hovered rect,
+.plaza-bay:focus-visible rect {
+  transform: scale(1.08);
+}
+
+.plaza-bay:focus-visible {
+  outline: none;
+}
+
+.plaza-bay:focus-visible rect {
+  stroke: var(--green);
+  stroke-width: 2.5;
+}
+
+.plaza-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.plaza-bay.is-charging .plaza-label,
+.plaza-bay.is-risk .plaza-label {
+  fill: #fff;
+}
+
+.plaza-live {
+  fill: var(--green-bright);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .plaza-live {
+    animation: plaza-pulse 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes plaza-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.plaza-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.plaza-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plaza-key i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+
+.plaza-readout {
+  margin-left: auto;
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.site-switch .caret {
+  color: var(--dim);
+  display: inline-flex;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.site-switch button[aria-expanded='true'] .caret {
+  transform: rotate(180deg);
+}
+
+.site-switch button {
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.site-switch button:hover {
+  border-color: var(--dim);
+}
+
+/* Narrow: the rail and the two-column splits stack rather than forcing a sideways scroll. */
+@media (max-width: 900px) {
+  .console {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    overflow-x: auto;
+  }
+
+  .sidebar nav {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .sidebar nav a .nav-label {
+    display: none;
+  }
+
+  .sidebar nav a {
+    padding: 9px 11px;
+  }
+
+  .sidebar .who {
+    margin-top: 0;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .main {
+    padding: 14px 14px 32px;
+  }
+
+  .grid.two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Flexibility ramp --------------------------------------------------------- */
+
+.ramp svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ramp-area {
+  fill: var(--green-soft);
+  opacity: 0.7;
+}
+
+.ramp-line {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ramp-limit {
+  stroke: var(--red);
+  stroke-width: 1.25;
+  stroke-dasharray: 5 5;
+  opacity: 0.7;
+}
+
+.ramp-mark {
+  stroke: var(--line);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 4;
+}
+
+.ramp-knob {
+  fill: var(--card);
+  stroke: var(--green);
+  stroke-width: 2.25;
+}
+
+.ramp-time {
+  font-size: 11.5px;
+  fill: var(--muted);
+  text-anchor: middle;
+}
+
+.ramp-axis {
+  font-size: 11px;
+  fill: var(--dim);
+}
+
+.ramp-axis.is-end {
+  text-anchor: end;
+}
+
+.ramp-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  max-width: 78ch;
+}
+
+.ramp-note strong {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A table wider than the screen scrolls inside its card; the page itself never does. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.scroll-x > table {
+  min-width: 560px;
 }

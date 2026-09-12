@@ -9,7 +9,7 @@ import type { Plan, Session } from '../lib/types';
  */
 
 const WIDTH = 960;
-const ROW_HEIGHT = 18;
+const ROW_HEIGHT = 26;
 const LABEL_WIDTH = 74;
 const PAD_RIGHT = 10;
 
@@ -58,18 +58,18 @@ export function ScheduleGantt({
           const colour = MODE_COLOUR[row.session?.mode ?? 'balanced'] ?? 'var(--green)';
           return (
             <g key={row.sessionId}>
-              <text x={0} y={top + 12} fill="var(--muted)" fontSize="10.5">
+              <text x={0} y={top + 16} fill="var(--muted)" fontSize="11">
                 {row.session?.chargerId ?? row.sessionId.slice(0, 6)}
               </text>
-              <rect x={LABEL_WIDTH} y={top + 3} width={plotWidth} height={ROW_HEIGHT - 7} fill="var(--line-soft)" rx="3" />
+              <rect x={LABEL_WIDTH} y={top + 4} width={plotWidth} height={ROW_HEIGHT - 9} fill="var(--line-soft)" rx="5" />
               {row.powers.map((power, slot) =>
                 power > 0.01 ? (
                   <rect
                     key={slot}
                     x={x(slot)}
-                    y={top + 3}
+                    y={top + 4}
                     width={slotWidth + 0.4}
-                    height={ROW_HEIGHT - 7}
+                    height={ROW_HEIGHT - 9}
                     fill={colour}
                     opacity={0.35 + 0.65 * Math.min(1, power / Math.max(1, row.session?.maxPowerKw ?? 11))}
                   />
@@ -163,6 +163,35 @@ export function SiteDrawBars({ plan, timezone }: { readonly plan: Plan | null; r
           strokeWidth="1.3"
           strokeDasharray="6 4"
         />
+
+        {/* The gap between the plan's peak and the limit is the headroom the optimiser bought.
+            Labelling it turns the empty half of this chart into the point being made. */}
+        {capKw - plan.totals.peakKw > capKw * 0.06 ? (
+          <g className="headroom">
+            <line
+              x1={width - padRight - 150}
+              x2={width - padRight - 150}
+              y1={y(capKw)}
+              y2={y(plan.totals.peakKw)}
+              stroke="var(--dim)"
+              strokeWidth="1"
+            />
+            <path
+              d={`M ${width - padRight - 154} ${y(capKw) + 5} L ${width - padRight - 150} ${y(capKw)} L ${width - padRight - 146} ${y(capKw) + 5}`}
+              fill="none"
+              stroke="var(--dim)"
+              strokeWidth="1"
+            />
+            <text
+              x={width - padRight - 142}
+              y={(y(capKw) + y(plan.totals.peakKw)) / 2 + 4}
+              fill="var(--muted)"
+              fontSize="11"
+            >
+              {kw(capKw - plan.totals.peakKw, 0)} kW headroom
+            </text>
+          </g>
+        ) : null}
 
         {ticks.map((slot) => (
           <text

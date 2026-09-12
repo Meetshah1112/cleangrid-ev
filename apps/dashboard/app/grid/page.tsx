@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Console } from '../../components/Console';
+import { RampPlan, type Ramp } from '../../components/RampPlan';
 import { api, gridApi } from '../../lib/api';
 import { clockTime, kw } from '../../lib/format';
 import type { FlexEvent, GridSite } from '../../lib/types';
@@ -75,13 +76,36 @@ function GridBody({
 
   const here = network.find((entry) => entry.siteId === siteId) ?? null;
   const live = flexEvents.find((event) => event.status === 'accepted' && event.endsMs > nowMs) ?? null;
-  const capKw = Math.round(connectionKw * (1 - reduction / 100) * 10) / 10;
+  // Measured against what the site is drawing, so the percentage means what an operator expects.
+  const drawNowKw = here?.currentDrawKw ?? 0;
+  const reduceFromKw = drawNowKw > 0.5 ? drawNowKw : connectionKw;
+  const capKw = Math.round(reduceFromKw * (1 - reduction / 100) * 10) / 10;
+
+  /**
+   * The shape of the response: the request in force if there is one, otherwise the one the
+   * controls above would send. Per-session figures are the site's flexible load spread evenly,
+   * which is what the driver sees on their phone when the cap lands.
+   */
+  const drawKw = drawNowKw;
+  const targetKw = live ? live.capKw : capKw;
+  const flexibleKw = here?.flexibleKw ?? 0;
+  const ramp: Ramp = {
+    startsMs: live ? live.startsMs : nowMs + 60_000,
+    endsMs: live ? live.endsMs : nowMs + 60_000 + hours * 3_600_000,
+    capKw: Math.min(targetKw, drawKw),
+    connectionKw,
+    drawKw,
+    sessions: activeSessions,
+    perSessionBeforeKw: activeSessions > 0 ? flexibleKw / activeSessions : 0,
+    perSessionAfterKw:
+      activeSessions > 0 ? Math.max(0, flexibleKw - Math.max(0, drawKw - targetKw)) / activeSessions : 0,
+  };
 
   const request = (): void => {
     if (!siteId) return;
     setBusy(true);
     void gridApi
-      .requestReduction({ siteId, reductionPct: reduction, hours, connectionKw, nowMs })
+      .requestReduction({ siteId, reductionPct: reduction, hours, drawKw: drawNowKw, connectionKw, nowMs })
       .then(() => {
         loadNetwork();
         onChanged();
@@ -164,9 +188,19 @@ function GridBody({
             {kw(capKw, 0)}
             <small>kW</small>
           </div>
-          <div className="sub">at {reduction}% reduction</div>
+          <div className="sub">{reduction}% below the {kw(reduceFromKw, 0)} kW drawn now</div>
         </div>
       </div>
+
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-head">
+          <h2>{live ? 'Response in force' : 'Automated response plan'}</h2>
+          <span className="note">
+            {live ? 'the optimiser is already holding the site below the cap' : 'what would happen if this request arrived'}
+          </span>
+        </div>
+        <RampPlan ramp={ramp} timezone={timezone} live={live !== null} />
+      </section>
 
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-head">
@@ -218,7 +252,8 @@ function GridBody({
           {network.length === 0 ? (
             <p className="empty">No sites connected.</p>
           ) : (
-            <table className="data">
+            <div className="scroll-x">
+      <table className="data">
               <thead>
                 <tr>
                   <th>site</th>
@@ -244,6 +279,7 @@ function GridBody({
                 ))}
               </tbody>
             </table>
+      </div>
           )}
         </section>
 
@@ -255,7 +291,8 @@ function GridBody({
           {flexEvents.length === 0 ? (
             <p className="empty">Nothing asked for yet.</p>
           ) : (
-            <table className="data">
+            <div className="scroll-x">
+      <table className="data">
               <thead>
                 <tr>
                   <th>window</th>
@@ -282,6 +319,7 @@ function GridBody({
                   ))}
               </tbody>
             </table>
+      </div>
           )}
         </section>
       </div>
