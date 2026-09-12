@@ -13,6 +13,7 @@ interface CliOptions {
   readonly timeScale?: string;
   readonly rebase?: string;
   readonly meterInterval: string;
+  readonly loop?: boolean;
 }
 
 async function loadScenario(path: string, rebase: string | undefined): Promise<Scenario> {
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
     .option('--time-scale <n>', 'override the server time scale')
     .option('--rebase <day>', 'move the scenarios to another day (YYYY-MM-DD or "today")')
     .option('--meter-interval <minutes>', 'simulated minutes between meter values', '1')
+    .option('--loop', 'replay the day instead of disconnecting after the last car leaves')
     .parse(process.argv);
 
   const options = program.opts<CliOptions>();
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
         apiUrl: options.api,
         ...(options.timeScale === undefined ? {} : { timeScale: Number(options.timeScale) }),
         meterIntervalMs: Number(options.meterInterval) * 60_000,
+        ...(options.loop === true ? { loop: true } : {}),
         ...(paths.length > 1 ? { label: scenario.site.name } : {}),
       });
     }),

@@ -18,6 +18,7 @@ export function ProfileScreen({
   vehicles,
   defaultMode,
   onDefaultMode,
+  hasLiveSession,
   nowMs,
   clockScale,
 }: {
@@ -28,6 +29,7 @@ export function ProfileScreen({
   vehicles: Vehicle[];
   defaultMode: ChargingMode;
   onDefaultMode: (mode: ChargingMode) => void;
+  hasLiveSession: boolean;
   nowMs: number;
   clockScale: number;
 }) {
@@ -73,8 +75,12 @@ export function ProfileScreen({
       </Card>
 
       <Card>
-        <Label>Default preference</Label>
-        <Text style={styles.muted}>The mode a new session starts on. You can still change it per session.</Text>
+        <Label>Charging preference</Label>
+        <Text style={styles.muted}>
+          {hasLiveSession
+            ? 'Saved to your profile and applied to the session running now.'
+            : 'Saved to your profile and used for your next session.'}
+        </Text>
         <View style={{ height: theme.space(3) }} />
         {MODES.map((mode) => (
           <ChoiceRow

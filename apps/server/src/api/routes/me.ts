@@ -1,4 +1,4 @@
-import { createVehicleSchema, type Vehicle } from '@cleangrid/shared';
+import { createVehicleSchema, updateProfileSchema, type UserProfile, type Vehicle } from '@cleangrid/shared';
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { requireRole } from '../auth';
@@ -16,6 +16,34 @@ export async function registerMeRoutes(app: FastifyInstance, ctx: ApiContext): P
       siteId: profile?.siteId ?? request.principal.siteId,
       defaultMode: profile?.defaultMode ?? 'balanced',
       idTag: profile?.idTag ?? null,
+    });
+  });
+
+  /**
+   * A driver's own preferences. The default mode is what a new session starts on and what an RFID
+   * plug-in uses when nobody opens the app, so it belongs on the profile rather than in the phone.
+   */
+  app.patch('/me', async (request) => {
+    const body = updateProfileSchema.parse(request.body);
+    const existing = await ctx.repos.profiles.get(request.principal.id);
+    const profile: UserProfile = {
+      id: request.principal.id,
+      role: existing?.role ?? request.principal.role,
+      displayName: existing?.displayName ?? request.principal.displayName,
+      siteId: existing?.siteId ?? request.principal.siteId,
+      idTag: existing?.idTag ?? null,
+      defaultMode: body.defaultMode ?? existing?.defaultMode ?? 'balanced',
+      defaultDwellHours: body.defaultDwellHours ?? existing?.defaultDwellHours ?? 8,
+      defaultEnergyKwh: body.defaultEnergyKwh ?? existing?.defaultEnergyKwh ?? 20,
+    };
+    const saved = await ctx.repos.profiles.save(profile);
+    return ok({
+      id: saved.id,
+      role: saved.role,
+      displayName: saved.displayName,
+      siteId: saved.siteId,
+      defaultMode: saved.defaultMode,
+      idTag: saved.idTag,
     });
   });
 

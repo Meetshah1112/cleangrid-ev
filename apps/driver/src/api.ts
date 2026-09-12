@@ -227,6 +227,11 @@ export async function syncClock(): Promise<void> {
 export const api = {
   clock: () => request<{ nowMs: number; scale: number }>('/clock'),
   me: () => request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me'),
+  updateMe: (patch: { defaultMode?: ChargingMode }) =>
+    request<{ id: string; displayName: string; defaultMode: ChargingMode }>('/me', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
   sites: () => request<SiteSummary[]>('/sites'),
   forecast: () => request<Forecast>(`/sites/${siteId}/forecast?hours=24`),
   chargers: () => request<Charger[]>(`/sites/${siteId}/chargers`),

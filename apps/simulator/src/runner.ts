@@ -14,6 +14,24 @@ import { declareIntent } from './driver';
 
 const TICK_MS = 200;
 const RESYNC_EVERY_TICKS = 150;
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
+/**
+ * Move the whole day forward by however many whole days it takes to put it ahead of now.
+ *
+ * One pass is usually enough, but the server's clock can have run on while nobody was simulating,
+ * so the shift is computed from the gap rather than assumed to be a single day.
+ */
+function replayAfter(arrivals: readonly ResolvedArrival[], nowMs: number): ResolvedArrival[] {
+  const lastDepartMs = arrivals.reduce((latest, arrival) => Math.max(latest, arrival.departMs), 0);
+  const days = Math.max(1, Math.ceil((nowMs - lastDepartMs) / DAY_MS));
+  const shiftMs = days * DAY_MS;
+  return arrivals.map((arrival) => ({
+    ...arrival,
+    arriveMs: arrival.arriveMs + shiftMs,
+    departMs: arrival.departMs + shiftMs,
+  }));
+}
 
 export interface RunnerOptions {
   readonly scenario: Scenario;
@@ -24,6 +42,11 @@ export interface RunnerOptions {
   readonly onLog?: (line: string) => void;
   /** Shown in log lines when more than one site is being simulated. */
   readonly label?: string;
+  /**
+   * Replay the day instead of stopping after the last car leaves. A demo rig that disconnects its
+   * chargers looks identical to a broken one: every bay reads offline and no session can start.
+   */
+  readonly loop?: boolean;
 }
 
 interface ClockSync {
@@ -104,9 +127,10 @@ export class SimulatorRunner {
   }
 
   private async loop(): Promise<void> {
-    const arrivals = resolveArrivals(this.options.scenario);
-    const lastDepartMs = arrivals.reduce((latest, arrival) => Math.max(latest, arrival.departMs), 0);
+    let arrivals = resolveArrivals(this.options.scenario);
+    let lastDepartMs = arrivals.reduce((latest, arrival) => Math.max(latest, arrival.departMs), 0);
     let ticks = 0;
+    let day = 1;
 
     while (this.running) {
       const clock = this.clock;
@@ -121,12 +145,22 @@ export class SimulatorRunner {
       }
       for (const point of this.points.values()) await point.pump(nowMs);
 
-      if (this.unplugged.size === arrivals.length && nowMs > lastDepartMs) break;
+      if (this.unplugged.size === arrivals.length && nowMs > lastDepartMs) {
+        if (!this.options.loop) break;
+        // The chargers stay connected across the boundary; only the cars start over.
+        day += 1;
+        arrivals = replayAfter(arrivals, nowMs);
+        lastDepartMs = arrivals.reduce((latest, arrival) => Math.max(latest, arrival.departMs), 0);
+        this.pluggedIn.clear();
+        this.unplugged.clear();
+        this.log(`every car has come and gone; replaying as day ${day}`);
+      }
+
       ticks += 1;
       if (ticks % RESYNC_EVERY_TICKS === 0) await this.resync();
       await sleep(TICK_MS);
     }
-    this.log('every car has come and gone; scenario complete');
+    if (!this.options.loop) this.log('every car has come and gone; scenario complete');
   }
 
   /**

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { CurrentSession, Forecast, SiteSummary, Vehicle } from '../api';
+import type { ChargingMode, CurrentSession, Forecast, SiteSummary, Vehicle } from '../api';
 import { clockTime, countdown, kwh, localHour, percent } from '../format';
-import { carbonColor, greeting, theme } from '../theme';
+import { MODE_COPY, carbonColor, greeting, theme } from '../theme';
 import {
   Button,
   Card,
@@ -25,6 +25,7 @@ export function HomeScreen({
   current,
   forecast,
   nowMs,
+  defaultMode,
   onStart,
   onOpenPlan,
   onStop,
@@ -35,6 +36,7 @@ export function HomeScreen({
   current: CurrentSession | null;
   forecast: Forecast | null;
   nowMs: number;
+  defaultMode: ChargingMode;
   onStart: () => void;
   onOpenPlan: () => void;
   onStop?: (() => void) | undefined;
@@ -88,9 +90,9 @@ export function HomeScreen({
           <Chip tone="lime">
             {session
               ? waiting
-                ? '● Smart plan is on'
-                : `● Charging at ${session.currentPowerKw.toFixed(1)} kW`
-              : '○ Not charging'}
+                ? `● ${MODE_COPY[session.mode]?.title ?? session.mode} plan is on`
+                : `● Charging at ${session.currentPowerKw.toFixed(1)} kW · ${MODE_COPY[session.mode]?.title ?? session.mode}`
+              : `○ Not charging · ${MODE_COPY[defaultMode]?.title ?? defaultMode} when you plug in`}
           </Chip>
         </View>
       </DeepCard>

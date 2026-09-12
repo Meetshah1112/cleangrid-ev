@@ -130,6 +130,28 @@ export function SetupScreen({
             <Button title="Try again" tone="quiet" onPress={loadChargers} />
           </>
         ) : (
+          <>
+            {/* All ten rows greyed out with no explanation reads as a broken screen. */}
+            {chargers.every((option) => !option.online) ? (
+              <>
+                <Notice>
+                  None of the {chargers.length} bays here are connected right now, so a session cannot start. The
+                  chargers report in over OCPP; if this is the demo rig, its simulator has stopped.
+                </Notice>
+                <Button title="Check again" tone="quiet" onPress={loadChargers} />
+                <View style={{ height: theme.space(3) }} />
+              </>
+            ) : chargers.every((option) => !bayIsFree(option)) ? (
+              <>
+                <Notice>Every bay here is taken. Try again when one frees up, or pick another site in Profile.</Notice>
+                <Button title="Check again" tone="quiet" onPress={loadChargers} />
+                <View style={{ height: theme.space(3) }} />
+              </>
+            ) : null}
+          </>
+        )}
+
+        {chargers !== null && chargers.length > 0 ? (
           chargers.map((option) => {
             const free = bayIsFree(option);
             return (
@@ -153,7 +175,7 @@ export function SetupScreen({
               />
             );
           })
-        )}
+        ) : null}
 
         <TextLink title="Cancel" onPress={onCancel} />
       </Screen>

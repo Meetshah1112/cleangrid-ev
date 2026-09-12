@@ -159,6 +159,22 @@ export default function App() {
     if (tab === 'history' && history === null) loadHistory();
   }, [tab, history, loadHistory]);
 
+  /**
+   * The preference is saved on the profile, not held in the phone, and it is applied to a session
+   * that is already running. A driver who changes it while plugged in means "charge me that way",
+   * and telling them it only counts next time would be a strange answer to give.
+   */
+  const chooseDefaultMode = (mode: ChargingMode): void => {
+    setDefaultMode(mode);
+    void api.updateMe({ defaultMode: mode }).catch((caught: Error) => setError(caught.message));
+    if (current) {
+      void api
+        .updateSession(current.session.id, { mode })
+        .then(loadSession)
+        .catch((caught: Error) => setError(caught.message));
+    }
+  };
+
   const selectSite = (id: string): void => {
     setSiteId(id);
     setSite(id);
@@ -183,7 +199,8 @@ export default function App() {
           onSelectSite={selectSite}
           vehicles={vehicles}
           defaultMode={defaultMode}
-          onDefaultMode={setDefaultMode}
+          onDefaultMode={chooseDefaultMode}
+          hasLiveSession={current !== null}
           nowMs={nowMs}
           clockScale={clockScale}
         />
@@ -235,6 +252,7 @@ export default function App() {
         current={current}
         forecast={forecast}
         nowMs={nowMs}
+        defaultMode={defaultMode}
         onStart={() => setTab('plan')}
         onOpenPlan={() => setTab('plan')}
         onStop={

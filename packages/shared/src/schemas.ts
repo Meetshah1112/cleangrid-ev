@@ -40,6 +40,21 @@ export const createVehicleSchema = z.object({
   maxChargeKw: z.number().positive().max(350),
 });
 
+/** What a driver may change about themselves. */
+export const updateProfileSchema = z
+  .object({
+    defaultMode: chargingModeSchema.optional(),
+    defaultDwellHours: z.number().positive().max(72).optional(),
+    defaultEnergyKwh: z.number().positive().max(500).optional(),
+  })
+  .refine(
+    (value) =>
+      value.defaultMode !== undefined ||
+      value.defaultDwellHours !== undefined ||
+      value.defaultEnergyKwh !== undefined,
+    { message: 'provide at least one setting' },
+  );
+
 export const siteSettingsSchema = z
   .object({
     defaultMode: chargingModeSchema.optional(),
@@ -87,6 +102,7 @@ export type SessionPreviewInput = z.infer<typeof sessionPreviewSchema>;
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 export type UpdateSessionInput = z.infer<typeof updateSessionSchema>;
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;
 export type CreateFlexEventInput = z.infer<typeof createFlexEventSchema>;
 export type ClockControlInput = z.infer<typeof clockControlSchema>;
