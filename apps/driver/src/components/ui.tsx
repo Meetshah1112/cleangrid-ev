@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { carbonColor, theme } from '../theme';
+import { Icon } from './Icon';
 import { clockTime } from '../format';
 
 /** The shared pieces every screen is built from. */
@@ -88,6 +89,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled === true }}
       style={({ pressed }) => [styles.button, toneStyle, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Text style={[styles.buttonText, textStyle]}>{title}</Text>
@@ -97,7 +101,12 @@ export function Button({
 
 export function TextLink({ title, onPress }: { title: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed, styles.link]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      style={({ pressed }) => [pressed && styles.pressed, styles.link]}
+    >
       <Text style={styles.linkText}>{title}</Text>
     </Pressable>
   );
@@ -145,6 +154,7 @@ export function Stepper({
   min,
   max,
   format,
+  label,
 }: {
   value: number;
   onChange: (next: number) => void;
@@ -152,21 +162,33 @@ export function Stepper({
   min: number;
   max: number;
   format: (value: number) => string;
+  /** Names what is being adjusted, for the screen reader: "More energy". */
+  label?: string;
 }) {
+  const atMin = value <= min;
+  const atMax = value >= max;
   return (
-    <View style={styles.stepper}>
+    <View style={styles.stepper} accessibilityRole="adjustable" accessibilityValue={{ text: format(value) }}>
       <Pressable
-        style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.stepButton, pressed && styles.pressed, atMin && styles.disabled]}
         onPress={() => onChange(Math.max(min, value - step))}
+        disabled={atMin}
+        accessibilityRole="button"
+        accessibilityLabel={label ? `Less ${label}` : 'Less'}
+        accessibilityState={{ disabled: atMin }}
       >
-        <Text style={styles.stepSign}>−</Text>
+        <Icon name="minus" size={20} color={theme.green} />
       </Pressable>
       <Text style={styles.stepValue}>{format(value)}</Text>
       <Pressable
-        style={({ pressed }) => [styles.stepButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.stepButton, pressed && styles.pressed, atMax && styles.disabled]}
         onPress={() => onChange(Math.min(max, value + step))}
+        disabled={atMax}
+        accessibilityRole="button"
+        accessibilityLabel={label ? `More ${label}` : 'More'}
+        accessibilityState={{ disabled: atMax }}
       >
-        <Text style={styles.stepSign}>+</Text>
+        <Icon name="plus" size={20} color={theme.green} />
       </Pressable>
     </View>
   );
@@ -175,7 +197,14 @@ export function Stepper({
 /** The abstract EV in the home hero. Not a photo of a car, a shape that reads as one. */
 export function CarGlyph({ height = 120 }: { height?: number }) {
   return (
-    <Svg width="100%" height={height} viewBox="0 0 240 108" preserveAspectRatio="xMidYMid meet">
+    <Svg
+      width="100%"
+      height={height}
+      viewBox="0 0 240 108"
+      preserveAspectRatio="xMidYMid meet"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Path d="M62 54 L84 20 C89 12 97 8 107 8 L150 8 C161 8 170 14 174 24 L186 54 Z" fill={theme.limeDim} />
       <Rect x={6} y={48} width={228} height={52} rx={26} fill={theme.lime} />
       <Path d="M6 74 L234 48 L234 74 Z" fill="rgba(255,255,255,0.2)" />
@@ -298,6 +327,9 @@ export function ChoiceRow({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="radio"
+      accessibilityLabel={[title, subtitle, trailing].filter(Boolean).join(', ')}
+      accessibilityState={{ selected: selected === true, disabled: disabled === true }}
       style={({ pressed }) => [
         styles.choice,
         selected && styles.choiceOn,
@@ -316,21 +348,28 @@ export function ChoiceRow({
 
 export type Tab = 'home' | 'plan' | 'history' | 'profile';
 
-export function TabBar({ current, onChange }: { current: Tab; onChange: (tab: Tab) => void }) {
-  const tabs = [
-    { key: 'home', label: 'Home', glyph: '⌂' },
-    { key: 'plan', label: 'Plan', glyph: '⌁' },
-    { key: 'history', label: 'History', glyph: '◷' },
-    { key: 'profile', label: 'Profile', glyph: '◉' },
-  ] as const;
+const TABS = [
+  { key: 'home', label: 'Home', icon: 'home' },
+  { key: 'plan', label: 'Plan', icon: 'plan' },
+  { key: 'history', label: 'History', icon: 'history' },
+  { key: 'profile', label: 'Profile', icon: 'profile' },
+] as const;
 
+export function TabBar({ current, onChange }: { current: Tab; onChange: (tab: Tab) => void }) {
   return (
-    <View style={styles.tabbar}>
-      {tabs.map((tab) => {
+    <View style={styles.tabbar} accessibilityRole="tablist">
+      {TABS.map((tab) => {
         const active = tab.key === current;
         return (
-          <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={styles.tab}>
-            <Text style={[styles.tabGlyph, active && styles.tabActive]}>{tab.glyph}</Text>
+          <Pressable
+            key={tab.key}
+            onPress={() => onChange(tab.key)}
+            style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: active }}
+          >
+            <Icon name={tab.icon} size={22} color={active ? theme.green : theme.faint} />
             <Text style={[styles.tabLabel, active && styles.tabActive]}>{tab.label}</Text>
           </Pressable>
         );
@@ -408,8 +447,8 @@ const styles = StyleSheet.create({
     padding: theme.space(1),
   },
   stepButton: {
-    width: 46,
-    height: 46,
+    width: 48,
+    height: 48,
     borderRadius: 12,
     backgroundColor: theme.card,
     alignItems: 'center',
@@ -448,8 +487,15 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(2),
     paddingBottom: theme.space(5),
   },
-  tab: { flex: 1, alignItems: 'center' },
-  tabGlyph: { fontSize: 17, color: theme.faint },
-  tabLabel: { fontSize: 11, color: theme.faint, marginTop: 2 },
+  tab: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    borderRadius: 12,
+  },
+  tabPressed: { backgroundColor: theme.greenSoft },
+  tabLabel: { fontSize: 11, color: theme.faint },
   tabActive: { color: theme.green, fontWeight: '700' },
 });

@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChargingMode, ModePreview } from '../api';
-import { clockTime, getCurrency, money, percent } from '../format';
+import { clockTime, money, percent } from '../format';
 import { MODE_COPY, theme } from '../theme';
+import { Icon, type IconName } from './Icon';
 
 const ORDER: ChargingMode[] = ['cheapest', 'greenest', 'fastest', 'balanced'];
 
@@ -19,7 +20,6 @@ export function ModePicker({
   previews: ModePreview[] | null;
 }) {
   const byMode = new Map((previews ?? []).map((preview) => [preview.mode, preview]));
-  const currencyGlyph = getCurrency() === 'INR' ? '₹' : '£';
 
   return (
     <View style={styles.grid}>
@@ -31,10 +31,17 @@ export function ModePicker({
           <Pressable
             key={key}
             onPress={() => onChange(key)}
-            style={({ pressed }) => [styles.cell, selected && styles.cellOn, pressed && { opacity: 0.8 }]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={
+              preview
+                ? `${copy?.title}: ${copy?.blurb}, ${money(preview.cost)}, ${preview.co2Kg.toFixed(1)} kilograms of CO2`
+                : `${copy?.title}: ${copy?.blurb}, estimating`
+            }
+            style={({ pressed }) => [styles.cell, selected && styles.cellOn, pressed && styles.cellPressed]}
           >
             <View style={[styles.glyphWrap, selected && styles.glyphWrapOn]}>
-              <Text style={styles.glyph}>{key === 'cheapest' ? currencyGlyph : copy?.glyph}</Text>
+              <Icon name={key as IconName} size={18} color={theme.green} />
             </View>
             <Text style={styles.cellTitle}>{copy?.title}</Text>
             <Text style={styles.cellBlurb}>{copy?.blurb}</Text>
@@ -73,6 +80,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.space(3),
   },
   cellOn: { borderColor: theme.green, backgroundColor: theme.greenSoft },
+  // Opacity only: a transform here would shift the neighbouring cards on every tap.
+  cellPressed: { opacity: 0.75 },
   glyphWrap: {
     width: 34,
     height: 34,
@@ -83,7 +92,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.space(2),
   },
   glyphWrapOn: { backgroundColor: '#ffffff' },
-  glyph: { fontSize: 16, color: theme.green },
   cellTitle: { fontSize: 15.5, fontWeight: '700', color: theme.ink },
   cellBlurb: { fontSize: 12, color: theme.muted, marginTop: 1 },
   cellCost: { fontSize: 17, fontWeight: '700', color: theme.ink, marginTop: theme.space(2), fontVariant: ['tabular-nums'] },

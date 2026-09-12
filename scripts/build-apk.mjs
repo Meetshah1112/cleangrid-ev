@@ -3,6 +3,7 @@
  * Builds an installable release APK of the driver app and, if a phone is attached, installs it.
  *
  *   node scripts/build-apk.mjs --api http://192.168.1.20:8095 [--driver drv-amara] [--site site-riverside]
+ *                              [--abis arm64-v8a,x86_64]
  *
  * The APK is standalone: there is no Metro to fetch JavaScript from, so the API address is compiled
  * into the bundle. That is the one thing you must get right — a phone cannot reach 127.0.0.1 on your
@@ -10,6 +11,8 @@
  *
  * Three things this encodes, each learned by getting it wrong:
  *  - one CPU architecture, not four. Building all of them ran the NDK's clang out of memory.
+ *    Phones are arm64-v8a; add x86_64 with --abis when the target is an emulator, or the app
+ *    dies on launch with "couldn't find DSO to load: libreactnative.so".
  *  - the JDK that ships with Android Studio, because `java` is usually not on PATH on Windows.
  *  - cleartext HTTP must be declared in app.json (expo-build-properties), or a release build
  *    refuses to talk to a plain-HTTP server while Expo Go happily would.
@@ -74,7 +77,9 @@ run('npx', ['expo', 'prebuild', '--platform', 'android'], { cwd: driver, env });
 
 // The wrapper lives in the working directory, which is not on PATH on Windows.
 const gradlew = join(android, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
-run(gradlew, ['assembleRelease', '--no-daemon', '--max-workers=2', '-PreactNativeArchitectures=arm64-v8a'], {
+const abis = arg('abis', 'arm64-v8a');
+console.log(`architectures: ${abis}`);
+run(gradlew, ['assembleRelease', '--no-daemon', '--max-workers=2', `-PreactNativeArchitectures=${abis}`], {
   cwd: android,
   env,
 });

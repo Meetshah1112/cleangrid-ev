@@ -192,7 +192,15 @@ export function SetupScreen({
 
       <Card>
         <Label>Energy needed</Label>
-        <Stepper value={energyKwh} onChange={setEnergyKwh} step={1} min={1} max={120} format={(value) => kwh(value)} />
+        <Stepper
+          value={energyKwh}
+          onChange={setEnergyKwh}
+          step={1}
+          min={1}
+          max={120}
+          format={(value) => kwh(value)}
+          label="energy"
+        />
         {vehicle ? (
           <Text style={styles.hint}>
             {vehicle.label} holds {vehicle.batteryKwh} kWh and takes up to {vehicle.maxChargeKw} kW
@@ -209,6 +217,7 @@ export function SetupScreen({
           min={serverNow() + 15 * 60_000}
           max={serverNow() + 36 * 3_600_000}
           format={(value) => clockTime(value)}
+          label="time"
         />
       </Card>
 
