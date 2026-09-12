@@ -1,0 +1,561 @@
+/* Schedules: the plan drawn into the day, then car by car, then as sent. */
+
+.hero-outcome {
+  margin: 0;
+  max-width: 46ch;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  background: rgb(252 253 251 / 0.9);
+  color: var(--forest);
+  font-size: 14px;
+  line-height: 1.45;
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+/* Site draw in the meadow ------------------------------------------------------------------ */
+
+.draw-ground {
+  stroke: rgb(252 253 251 / 0.35);
+  stroke-width: 1;
+}
+
+.draw-bar,
+.draw-base {
+  transition: y var(--t-move) var(--ease), height var(--t-move) var(--ease);
+}
+
+.draw-bar {
+  fill: var(--lime);
+  fill-opacity: 0.92;
+}
+
+/* The building's own load: part of the draw, not something the scheduler moves. */
+.draw-base {
+  fill: rgb(214 232 220);
+  fill-opacity: 0.32;
+}
+
+.draw-block.is-past .draw-bar {
+  fill: rgb(214 226 218);
+  fill-opacity: 0.45;
+}
+
+.draw-block.is-past .draw-base {
+  fill-opacity: 0.16;
+}
+
+.draw-block.is-over .draw-bar {
+  fill: var(--coral);
+  fill-opacity: 1;
+}
+
+.draw-cap-halo {
+  fill: none;
+  stroke: rgb(12 38 28 / 0.35);
+  stroke-width: 4;
+}
+
+.draw-cap {
+  fill: none;
+  stroke: rgb(255 170 150);
+  stroke-width: 1.6;
+  stroke-dasharray: 7 5;
+}
+
+.draw-head {
+  position: absolute;
+  left: var(--page-x);
+  display: grid;
+  gap: 2px;
+  color: var(--paper);
+  text-shadow: 0 1px 3px rgb(8 24 18 / 0.7);
+}
+
+.draw-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(20px, 1.8vw, 24px);
+}
+
+.draw-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  margin: 0;
+  font-size: 13px;
+  color: rgb(252 253 251 / 0.86);
+}
+
+.draw-facts .is-over {
+  color: rgb(255 190 175);
+  font-weight: 600;
+}
+
+.draw-label {
+  position: absolute;
+  margin: 0;
+  font-size: 13px;
+  color: var(--paper);
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px rgb(8 24 18 / 0.7),
+    0 0 14px rgb(8 24 18 / 0.5);
+}
+
+.draw-label.is-peak {
+  transform: translate(-50%, -100%);
+}
+
+.draw-label strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 18px;
+  color: var(--lime);
+}
+
+.draw-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(252 253 251 / 0.9);
+  text-shadow: 0 1px 3px rgb(8 24 18 / 0.7);
+}
+
+.draw-legend {
+  background: var(--forest-deep);
+  padding-block: 14px 40px;
+}
+
+.draw-legend .chart-legend {
+  margin: 0;
+  color: rgb(252 253 251 / 0.78);
+}
+
+.key.is-limit {
+  width: 16px;
+  height: 0;
+  border-radius: 0;
+  border-top: 2px dashed rgb(255 170 150);
+}
+
+.draw-legend .key.is-draw {
+  background: var(--lime);
+  box-shadow: none;
+}
+
+.key.is-base {
+  border-radius: 3px;
+  background: rgb(214 232 220 / 0.4);
+}
+
+.key.is-mode {
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+/* Plan river ------------------------------------------------------------------------------- */
+
+.chapter > .wrap > .chapter-head .title {
+  max-width: 22ch;
+}
+
+.river-alert {
+  margin-bottom: 18px;
+}
+
+.river {
+  position: relative;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.river svg {
+  display: block;
+  overflow: visible;
+}
+
+.river-row {
+  cursor: pointer;
+  outline: none;
+}
+
+.river-hit {
+  fill: transparent;
+  transition: fill var(--t-fast) var(--ease);
+}
+
+.river-row.is-hovered .river-hit,
+.river-row:focus-visible .river-hit {
+  fill: var(--mist);
+}
+
+.river-row.is-selected .river-hit {
+  fill: var(--lime-soft);
+}
+
+.river-row:focus-visible .river-hit {
+  stroke: var(--canopy);
+  stroke-width: 1.5;
+}
+
+.river-label {
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--forest);
+}
+
+.river-sub {
+  font-size: 12px;
+  fill: var(--stone);
+}
+
+.river-row.is-risk .river-label {
+  fill: var(--coral-ink);
+}
+
+.river-thread {
+  stroke: var(--rule);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.river-row.is-selected .river-thread {
+  stroke: rgb(20 57 43 / 0.28);
+}
+
+.river-deadline {
+  stroke: var(--forest);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.river-row.is-risk .river-deadline {
+  stroke: var(--coral);
+  stroke-width: 2;
+}
+
+.river-block {
+  transition: fill-opacity var(--t-move) var(--ease);
+}
+
+.river-block.is-past {
+  fill: var(--pebble) !important;
+}
+
+.river-now line {
+  stroke: var(--forest);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.river-now text {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--forest);
+}
+
+.river-window rect {
+  fill: rgb(185 227 107 / 0.22);
+}
+
+.river-window text {
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--canopy-ink);
+}
+
+.river-empty {
+  font-size: 14px;
+  fill: var(--stone);
+}
+
+.river-tip {
+  position: absolute;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 2px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--forest);
+  color: var(--paper);
+  font-size: 13.5px;
+  line-height: 1.4;
+  box-shadow: 0 18px 36px -18px rgb(8 24 18 / 0.5);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.river + .chart-legend {
+  margin-top: 4px;
+}
+
+/* The chosen car --------------------------------------------------------------------------- */
+
+.plan-detail {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 34px;
+  padding: 24px clamp(18px, 3vw, 32px) 26px;
+  border-radius: 24px;
+  background: var(--lime-soft);
+  display: grid;
+  gap: 16px;
+  scroll-margin: 90px;
+}
+
+.plan-detail.is-risk {
+  background: var(--coral-soft);
+}
+
+.plan-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.plan-detail-head .eyebrow {
+  color: var(--stone);
+  margin-bottom: 6px;
+}
+
+.plan-detail-why {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 64ch;
+}
+
+.plan-detail .notice.is-error {
+  background: var(--paper);
+  font-size: 15px;
+}
+
+.plan-detail-facts {
+  display: grid;
+  grid-template-columns: minmax(130px, auto) 1fr;
+  gap: 6px 22px;
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.plan-detail-facts div {
+  display: contents;
+}
+
+.plan-detail-facts dt {
+  color: var(--stone);
+}
+
+.plan-detail-facts dd {
+  margin: 0;
+}
+
+.override {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(20 57 43 / 0.12);
+}
+
+.override-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.override-label {
+  min-width: 130px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.override .segmented {
+  background: rgb(252 253 251 / 0.75);
+  flex-wrap: wrap;
+}
+
+.override .segmented button[aria-pressed='true'] {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.override-preview {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.override-compare {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.override-compare strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 19px;
+}
+
+.override-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Commitments ------------------------------------------------------------------------------ */
+
+.chapter.is-mist > .wrap > .title {
+  margin-bottom: 8px;
+}
+
+.chapter-lede {
+  margin-bottom: 26px;
+}
+
+.chapter.is-mist .session-main:not(:disabled):hover,
+.chapter.is-mist .session.is-selected .session-main {
+  background: var(--paper);
+}
+
+/* Dispatch trace --------------------------------------------------------------------------- */
+
+.trace-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: start;
+}
+
+.trace-wrap .caption {
+  margin-top: 10px;
+  max-width: 40ch;
+}
+
+.trace {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.trace-row + .trace-row {
+  border-top: 1px solid var(--rule);
+}
+
+.trace-line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 6ch 7ch 9ch minmax(0, 1fr) 9ch;
+  gap: 16px;
+  padding: 9px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--stone);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trace-line:hover,
+.trace-line[aria-expanded='true'] {
+  background: var(--mist);
+  color: var(--forest);
+}
+
+.trace-line .num {
+  text-align: right;
+}
+
+.trace-status {
+  color: var(--canopy-ink);
+}
+
+.trace-row.is-refused .trace-status {
+  color: var(--coral-ink);
+  font-weight: 600;
+}
+
+.trace-detail {
+  display: grid;
+  gap: 10px;
+  padding: 6px 6px 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  /* Tabular figures also set tabular punctuation, which opens gaps around commas in prose. */
+  font-variant-numeric: normal;
+}
+
+.trace-then {
+  color: var(--pebble);
+}
+
+.trace-detail p {
+  margin: 0;
+  color: var(--forest);
+}
+
+.trace-detail .appendix {
+  max-width: 280px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.trace-detail .appendix td {
+  padding-block: 6px;
+}
+
+@media (max-width: 860px) {
+  .trace-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .draw-label.is-cap {
+    display: none;
+  }
+
+  .draw-legend {
+    padding-bottom: 32px;
+  }
+
+  .plan-detail-head {
+    flex-direction: column-reverse;
+  }
+
+  .plan-detail-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .plan-detail-facts dd {
+    margin-bottom: 8px;
+  }
+
+  .trace-line {
+    grid-template-columns: 5ch minmax(0, 1fr) 8ch;
+    gap: 2px 10px;
+  }
+
+  .trace-then,
+  .trace-status {
+    grid-column: 2 / -1;
+  }
+
+  .trace-then:empty {
+    display: none;
+  }
+}

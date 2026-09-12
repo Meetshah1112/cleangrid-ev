@@ -1,0 +1,398 @@
+/* Impact: carbon added up across the meadow, then the evidence behind every figure. */
+
+.trust {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: rgb(252 253 251 / 0.9);
+  color: var(--canopy-ink);
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(6px);
+}
+
+.segmented.is-glass {
+  background: rgb(252 253 251 / 0.78);
+  backdrop-filter: blur(6px);
+}
+
+/* Traces ------------------------------------------------------------------------------------ */
+
+.proof-trace-area {
+  fill: var(--lime);
+  fill-opacity: 0.2;
+}
+
+.proof-trace-actual {
+  fill: none;
+  stroke: var(--lime);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.proof-trace-baseline {
+  fill: none;
+  stroke: rgb(252 253 251 / 0.75);
+  stroke-width: 1.8;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+}
+
+.proof-trace-bridge {
+  stroke: var(--paper);
+  stroke-width: 1.5;
+}
+
+.draw-label.is-baseline strong {
+  color: var(--paper);
+}
+
+.hero-copy .lede.is-wider {
+  max-width: 54ch;
+}
+
+.proof-head {
+  gap: 4px;
+}
+
+.proof-claim {
+  margin: 0;
+  font-size: 14px;
+  color: rgb(252 253 251 / 0.9);
+}
+
+.proof-claim strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(22px, 2vw, 28px);
+  color: var(--lime);
+  margin-right: 4px;
+}
+
+.trace-ends {
+  position: absolute;
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--paper);
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px rgb(8 24 18 / 0.7),
+    0 0 14px rgb(8 24 18 / 0.5);
+}
+
+.trace-end {
+  margin: 0;
+}
+
+.trace-end strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 18px;
+}
+
+.trace-end.is-actual strong {
+  color: var(--lime);
+}
+
+.draw-label.is-wrapping {
+  white-space: normal;
+}
+
+.proof-hit {
+  position: absolute;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.proof-tip {
+  width: min(280px, calc(100vw - 40px));
+  transform: none;
+}
+
+/* Proof ribbon -------------------------------------------------------------------------------- */
+
+.proof-ribbon .figure.is-clean {
+  color: var(--canopy-ink);
+}
+
+.proof-ribbon .figure.is-over {
+  color: var(--coral-ink);
+}
+
+.provisional {
+  margin-top: 18px;
+  max-width: 70ch;
+}
+
+.provisional strong {
+  color: var(--sun-ink);
+}
+
+/* Two ways ------------------------------------------------------------------------------------ */
+
+.story {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: clamp(16px, 2.4vw, 36px);
+  align-items: start;
+}
+
+.story-moment {
+  margin: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.story-moment .scene {
+  border-radius: 28px 28px 28px 110px / 28px 28px 28px 56px;
+}
+
+.story-moment.is-cleangrid .scene {
+  border-radius: 28px 28px 110px 28px / 28px 28px 56px 28px;
+}
+
+.story-moment figcaption {
+  display: grid;
+  gap: 6px;
+}
+
+.story-moment .eyebrow {
+  color: var(--stone);
+}
+
+.story-figure {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(34px, 3.6vw, 52px);
+  line-height: 1.05;
+  color: var(--stone);
+}
+
+.story-figure.is-clean {
+  color: var(--canopy-ink);
+}
+
+.story-trace rect {
+  fill: rgb(214 222 218 / 0.72);
+}
+
+.story-bridge {
+  margin: 0;
+  align-self: center;
+  margin-top: -60px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  color: var(--canopy-ink);
+}
+
+.story-bridge strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(30px, 3vw, 42px);
+}
+
+.story-bridge span {
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 14ch;
+}
+
+/* Ledger -------------------------------------------------------------------------------------- */
+
+.ledger {
+  display: grid;
+  gap: 18px;
+}
+
+.ledger-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px 18px;
+}
+
+.ledger-filters label {
+  display: grid;
+  gap: 4px;
+}
+
+.chapter.is-mist .segmented {
+  background: var(--paper);
+}
+
+.chapter.is-mist .segmented button[aria-pressed='true'] {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.ledger-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 30px;
+  margin: 0;
+  padding-block: 12px;
+  border-block: 1px solid var(--rule);
+  font-size: 14.5px;
+  color: var(--stone);
+}
+
+.ledger-totals strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--forest);
+}
+
+.ledger-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ledger-row + .ledger-row {
+  border-top: 1px solid var(--rule);
+}
+
+.ledger-line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(170px, 1.6fr) 90px 60px 70px minmax(130px, 1fr) minmax(150px, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px 8px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--forest);
+  font-size: 14.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-line:hover,
+.ledger-row.is-open .ledger-line {
+  background: var(--paper);
+}
+
+.ledger-line .num {
+  text-align: right;
+}
+
+.ledger-who {
+  display: grid;
+}
+
+.ledger-who span {
+  font-size: 13px;
+  color: var(--stone);
+}
+
+.ledger-evidence {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sun-ink);
+}
+
+.ledger-evidence.is-verified {
+  color: var(--canopy-ink);
+}
+
+.ledger-outcome {
+  font-size: 13px;
+  color: var(--stone);
+}
+
+.ledger-outcome.is-missed {
+  color: var(--coral-ink);
+  font-weight: 600;
+}
+
+.ledger-more {
+  justify-self: start;
+}
+
+/* The proof chain is a real sequence, so it is numbered. */
+.chain {
+  margin: 2px 8px 18px;
+  padding: 16px 18px 16px 42px;
+  border-radius: 16px;
+  background: var(--paper);
+  display: grid;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.chain li {
+  padding-left: 4px;
+}
+
+.chain li::marker {
+  font-family: var(--serif);
+  color: var(--canopy-ink);
+}
+
+.chain strong {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--stone);
+}
+
+.period {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 40px;
+  margin: 40px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.period div {
+  display: grid;
+  gap: 2px;
+}
+
+.period dt {
+  font-size: 13px;
+  color: var(--stone);
+}
+
+.period dd {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 24px;
+}
+
+@media (max-width: 980px) {
+  .story {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .story-bridge {
+    margin-top: 0;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .ledger-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+  }
+
+  .ledger-line > :nth-child(3),
+  .ledger-line > :nth-child(4) {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+
+
+}

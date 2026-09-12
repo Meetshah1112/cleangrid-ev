@@ -8,7 +8,9 @@ import type {
   Impact,
   Overview,
   Plan,
+  Preview,
   Session,
+  SessionReport,
   Site,
 } from './types';
 
@@ -49,12 +51,54 @@ export const api = {
   clock: () => request<{ nowMs: number; scale: number }>('/clock'),
   overview: (siteId: string) => request<Overview>(`/sites/${siteId}/overview`),
   plan: (siteId: string) => request<Plan>(`/sites/${siteId}/plans/latest`),
-  sessions: (siteId: string) => request<Session[]>(`/sites/${siteId}/sessions?limit=100`),
+  /** Sessions in one state, newest first, for history that reaches further back than the live list. */
+  sessionsWithStatus: (siteId: string, status: 'complete' | 'aborted', limit = 500) =>
+    request<Session[]>(`/sites/${siteId}/sessions?status=${status}&limit=${limit}`),
+  /**
+   * The cars on site now, plus recent history.
+   *
+   * The newest hundred sessions are not guaranteed to include the ones still plugged in: a store
+   * that outlives a run keeps sessions stamped later than this run's clock, and those sort first.
+   * Asking for active and pending sessions by status as well means a car on a bay is never missing
+   * from the console because of what an earlier run left behind.
+   */
+  sessions: async (siteId: string) => {
+    const [recent, active, pending] = await Promise.all([
+      request<Session[]>(`/sites/${siteId}/sessions?limit=100`),
+      request<Session[]>(`/sites/${siteId}/sessions?status=active&limit=200`),
+      request<Session[]>(`/sites/${siteId}/sessions?status=pending&limit=200`),
+    ]);
+    const live = [...active, ...pending];
+    const liveIds = new Set(live.map((session) => session.id));
+    return [...live, ...recent.filter((session) => !liveIds.has(session.id))];
+  },
   chargers: (siteId: string) => request<Charger[]>(`/sites/${siteId}/chargers`),
   forecast: (siteId: string, hours = 24) => request<Forecast>(`/sites/${siteId}/forecast?hours=${hours}`),
   flexEvents: (siteId: string) => request<FlexEvent[]>(`/sites/${siteId}/flex-events`),
   dispatchLog: (siteId: string, limit = 12) => request<Dispatch[]>(`/sites/${siteId}/dispatch-log?limit=${limit}`),
-  impact: (siteId: string) => request<Impact>(`/sites/${siteId}/reports`),
+  /** A period of the site's measured impact. Without a range the server reports the last 30 days. */
+  impact: (siteId: string, range?: { fromMs: number; toMs: number }) =>
+    request<Impact>(
+      range
+        ? `/sites/${siteId}/reports?from=${new Date(range.fromMs).toISOString()}&to=${new Date(range.toMs).toISOString()}`
+        : `/sites/${siteId}/reports`,
+    ),
+  /** One session's proof. Provisional while the car is still charging. */
+  sessionReport: (sessionId: string) => request<SessionReport>(`/sessions/${sessionId}/report`),
+  /**
+   * What each mode would cost and emit for a request, before anything is changed. Used so an
+   * operator sees the consequence of an override before confirming it rather than after.
+   */
+  preview: (input: { siteId: string; energyKwh: number; deadlineMs: number; maxPowerKw: number }) =>
+    request<Preview>('/sessions/preview', {
+      method: 'POST',
+      body: JSON.stringify({
+        siteId: input.siteId,
+        energyKwh: Math.max(0.5, Math.round(input.energyKwh * 10) / 10),
+        deadlineAt: new Date(input.deadlineMs).toISOString(),
+        maxPowerKw: input.maxPowerKw,
+      }),
+    }),
   demand: (siteId: string, hours = 24) => request<Demand>(`/sites/${siteId}/demand?hours=${hours}`),
   /**
    * `queued` comes back instead of a plan when the optimiser is switched off at this site, which

@@ -142,12 +142,22 @@ export interface FlexEvent {
   createdMs: number;
 }
 
+/** One step of an OCPP charging profile, as the charger received it. */
+export interface ChargingPeriod {
+  startPeriodS: number;
+  limitW: number;
+}
+
 export interface Dispatch {
   id: string;
+  planId?: string;
   chargerId: string;
+  connectorId?: number;
   sessionId: string;
   sentMs: number;
   limitW: number;
+  /** The whole profile: the binding first period and the fallback periods behind it. */
+  periods?: ChargingPeriod[];
   status: string;
   error: string | null;
 }
@@ -183,6 +193,53 @@ export interface GridSite {
   carsPluggedIn: number;
 }
 
+/** A single session's evidence: what it did, and what charging on plug-in would have done. */
+export interface SessionReport {
+  sessionId: string;
+  energyKwh: number;
+  cost: number;
+  co2Kg: number;
+  renewableShare: number;
+  avgCarbonGPerKwh: number;
+  baselineCost: number;
+  baselineCo2Kg: number;
+  avoidedCo2Kg: number;
+  costSaved: number;
+  greenScore: number;
+  windowMinCarbonGPerKwh: number;
+  windowMaxCarbonGPerKwh: number;
+  /** Meter readings covered the session. */
+  verified: boolean;
+  /** Whether the carbon it was weighed against was settled data or a forecast. */
+  carbonBasis: 'actual' | 'forecast';
+  computedMs: number;
+  /** Still charging: these figures will move. */
+  provisional?: boolean;
+  mode?: ChargingMode;
+  chargerId?: string;
+  pluggedInMs?: number;
+  unpluggedMs?: number | null;
+}
+
+/** What each mode would do for a request, from the same scheduler that will run it. */
+export interface ModePreview {
+  mode: ChargingMode;
+  cost: number;
+  co2Kg: number;
+  energyKwh: number;
+  renewableShare: number;
+  finishByMs: number;
+  shortfallKwh: number;
+}
+
+export interface Preview {
+  feasible: boolean;
+  earliestDeadlineAt: string;
+  maxDeliverableKwh: number;
+  slackHours?: number;
+  modes: ModePreview[];
+}
+
 export interface Impact {
   sessions: number;
   verifiedSessions: number;
@@ -198,6 +255,8 @@ export interface Impact {
   peakKw: number;
   currency: string;
   gridConnectionKw?: number;
+  fromMs?: number;
+  toMs?: number;
 }
 
 export type SiteEvent =

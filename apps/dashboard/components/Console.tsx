@@ -28,8 +28,14 @@ export function Console({
       timeScale={live.timeScale}
       connected={live.connected}
     >
-      {error && <div className="error">Cannot reach the server: {error}</div>}
-      {children({ site: selection.site, live, selectSite: selection.select })}
+      {error ? (
+        <div className="server-down">
+          <p className="notice is-error" role="alert">
+            The CleanGrid server is not answering ({error}). Figures below are the last ones received.
+          </p>
+        </div>
+      ) : null}
+      <main>{children({ site: selection.site, live, selectSite: selection.select })}</main>
     </Shell>
   );
 }

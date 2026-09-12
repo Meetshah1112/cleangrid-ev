@@ -1,0 +1,538 @@
+/* Scenery, and everything drawn into it. */
+
+.scene {
+  position: relative;
+  width: 100%;
+  height: clamp(520px, 72vh, 720px);
+  overflow: hidden;
+  background: rgb(207 227 236);
+  isolation: isolate;
+}
+
+.scene.is-hero {
+  height: clamp(600px, calc(100vh - 64px - 150px), 760px);
+}
+
+/* A hero that carries data in its land as well as copy in its sky needs the height for both. */
+.scene.is-hero.is-tall {
+  height: clamp(700px, calc(100vh - 64px), 840px);
+}
+
+.scene.is-short {
+  height: clamp(420px, 56vh, 560px);
+}
+
+.scene.is-crop {
+  height: 300px;
+}
+
+.scene-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.scene-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scene-overlay a,
+.scene-overlay button,
+.scene-overlay [role='status'] {
+  pointer-events: auto;
+}
+
+/* Text reads the sky it sits on. */
+.tone-dark {
+  color: var(--forest);
+}
+
+.tone-light {
+  color: var(--paper);
+}
+
+.tone-light .eyebrow,
+.tone-light .lede {
+  text-shadow: 0 1px 18px rgb(8 20 32 / 0.45);
+}
+
+.tone-dark .lede {
+  color: var(--forest-mid);
+}
+
+.hero-copy {
+  position: absolute;
+  left: var(--page-x);
+  top: clamp(34px, 7vh, 76px);
+  max-width: min(640px, 50vw);
+  display: grid;
+  gap: 16px;
+}
+
+.hero-copy .lede {
+  max-width: 30ch;
+}
+
+.hero-copy .lede.is-wide {
+  max-width: 44ch;
+}
+
+.hero-copy .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 6px;
+  pointer-events: auto;
+}
+
+.hero-promise {
+  position: absolute;
+  right: var(--page-x);
+  top: clamp(40px, 8vh, 84px);
+  text-align: right;
+  max-width: 280px;
+  display: grid;
+  gap: 6px;
+}
+
+.hero-promise-figure {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-promise-figure span {
+  display: block;
+  font-family: var(--sans);
+  font-variant-numeric: normal;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.hero-promise-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.tone-light .hero-promise-figure,
+.tone-light .hero-promise-note {
+  text-shadow: 0 1px 16px rgb(8 20 32 / 0.5);
+}
+
+/* Energy horizon ------------------------------------------------------------------------ */
+
+.horizon-area {
+  fill: var(--lime);
+  fill-opacity: 0.4;
+}
+
+.horizon-area.is-past {
+  fill-opacity: 0.16;
+}
+
+.horizon-area.is-window {
+  fill-opacity: 0.62;
+}
+
+.horizon-edge {
+  stroke: var(--lime);
+  stroke-width: 2.2;
+}
+
+.horizon-edge.is-fading {
+  stroke: var(--cyan);
+  stroke-width: 2.6;
+}
+
+.horizon-arc {
+  fill: none;
+  stroke: rgb(252 253 251 / 0.92);
+  stroke-width: 1.6;
+}
+
+.horizon-now {
+  stroke: rgb(252 253 251 / 0.75);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+/* Labels written straight onto the landscape, lifted off it by a soft shadow rather than a box. */
+.horizon-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin: 0;
+  font-size: 14px;
+  color: var(--paper);
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px rgb(8 24 18 / 0.6),
+    0 0 18px rgb(8 24 18 / 0.45);
+}
+
+.horizon-label strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.horizon-label.is-window strong {
+  color: var(--lime);
+}
+
+.horizon-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(252 253 251 / 0.9);
+  text-shadow: 0 1px 3px rgb(8 24 18 / 0.7);
+}
+
+/* Charger lane --------------------------------------------------------------------------- */
+
+.lane-road {
+  fill: none;
+  stroke: rgb(226 236 229 / 0.3);
+  stroke-width: 34;
+  stroke-linecap: round;
+}
+
+.lane-centre {
+  fill: none;
+  stroke: rgb(252 253 251 / 0.55);
+  stroke-width: 1.4;
+  stroke-dasharray: 10 12;
+}
+
+.lane-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.lane-hit {
+  fill: transparent;
+}
+
+.lane-dot {
+  stroke: var(--paper);
+  stroke-width: 2;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.lane-node:hover .lane-dot,
+.lane-node:focus-visible .lane-dot,
+.lane-node.is-selected .lane-dot {
+  transform: scale(1.14);
+}
+
+.lane-node:focus-visible .lane-hit {
+  stroke: var(--paper);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
+.lane-node.is-charging .lane-dot { fill: var(--canopy); }
+.lane-node.is-clean .lane-dot { fill: var(--lime); }
+.lane-node.is-waiting .lane-dot { fill: var(--cyan); }
+.lane-node.is-urgent .lane-dot { fill: var(--coral); }
+.lane-node.is-free .lane-dot { fill: rgb(252 253 251 / 0.9); }
+.lane-node.is-charged .lane-dot { fill: var(--canopy-soft); }
+
+.lane-check {
+  fill: none;
+  stroke: var(--canopy-ink);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lane-node.is-offline .lane-dot { fill: var(--pebble); stroke-dasharray: 3 3; }
+
+.lane-number {
+  text-anchor: middle;
+  font-size: 12.5px;
+  font-weight: 700;
+  fill: var(--forest);
+  pointer-events: none;
+}
+
+.lane-node.is-charging .lane-number,
+.lane-node.is-urgent .lane-number,
+.lane-node.is-offline .lane-number {
+  fill: var(--paper);
+}
+
+.lane-pause line {
+  stroke: var(--forest);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.lane-state {
+  text-anchor: middle;
+  font-size: 11.5px;
+  font-weight: 600;
+  fill: var(--paper);
+  paint-order: stroke;
+  stroke: rgb(12 38 28 / 0.55);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.lane-flow {
+  stroke: var(--lime);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 4 5;
+  animation: lane-flow 1.4s linear 1;
+}
+
+@keyframes lane-flow {
+  from {
+    stroke-dashoffset: 18;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.lane-detail {
+  position: absolute;
+  width: 280px;
+  transform: translate(-50%, calc(-100% - 30px));
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--forest);
+  box-shadow: 0 20px 40px -18px rgb(8 24 18 / 0.45);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.lane-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.lane-detail-state {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.lane-detail-state.is-charging { color: var(--canopy-ink); }
+.lane-detail-state.is-clean { color: var(--canopy-ink); }
+.lane-detail-state.is-waiting { color: var(--cyan-ink); }
+.lane-detail-state.is-charged { color: var(--canopy-ink); }
+.lane-detail-state.is-urgent { color: var(--coral-ink); }
+.lane-detail-state.is-free,
+.lane-detail-state.is-offline { color: var(--stone); }
+
+.lane-detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font-size: 13.5px;
+}
+
+.lane-detail dl div {
+  display: contents;
+}
+
+.lane-detail dt {
+  color: var(--stone);
+}
+
+.lane-detail dd {
+  margin: 0;
+  text-align: right;
+}
+
+.lane-detail-why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--stone);
+}
+
+.hero-legend {
+  position: absolute;
+  left: var(--page-x);
+  bottom: 14px;
+}
+
+.lane-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hero-legend .lane-legend {
+  color: var(--paper);
+  text-shadow: 0 1px 3px rgb(8 24 18 / 0.7);
+}
+
+.lane-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.key.is-charging { background: var(--canopy); }
+.key.is-holding { background: var(--cyan); }
+.key.is-free { background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--pebble); }
+.key.is-charged { background: var(--canopy-soft); box-shadow: inset 0 0 0 1.5px var(--canopy); }
+.key.is-urgent { background: var(--coral); }
+.key.is-offline { background: var(--pebble); }
+
+/* Proof strip ---------------------------------------------------------------------------- */
+
+.proof {
+  background: var(--forest-deep);
+  color: var(--paper);
+  padding-block: 22px 26px;
+}
+
+.proof-claims {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 44px;
+  margin: 0;
+  font-size: 15px;
+  color: rgb(252 253 251 / 0.82);
+}
+
+.proof-claims strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(24px, 2.2vw, 30px);
+  color: var(--paper);
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.proof-claims span:first-child strong,
+.proof-claims span:nth-child(2) strong {
+  color: var(--lime);
+}
+
+.proof-promise {
+  display: none;
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: rgb(252 253 251 / 0.86);
+}
+
+.proof-promise strong {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 28px;
+  color: var(--lime);
+}
+
+.proof-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid rgb(252 253 251 / 0.14);
+  font-size: 13px;
+  color: rgb(252 253 251 / 0.72);
+}
+
+.wave {
+  display: block;
+  width: 100%;
+  height: var(--wave-h);
+  margin-top: calc(var(--wave-h) * -1);
+  position: relative;
+}
+
+.wave.is-flipped {
+  transform: scaleY(-1);
+  margin-top: 0;
+  margin-bottom: calc(var(--wave-h) * -1);
+}
+
+/* Phones: the copy flows instead of floating, and the scene keeps only what fits. */
+@media (max-width: 760px) {
+  .scene.is-hero {
+    height: 720px;
+  }
+
+  .scene.is-hero.is-tall {
+    height: 860px;
+  }
+
+  .hero-copy {
+    max-width: none;
+    right: var(--page-x);
+    top: 28px;
+  }
+
+  .hero-promise {
+    left: var(--page-x);
+    right: auto;
+    top: auto;
+    bottom: 212px;
+    text-align: left;
+  }
+
+  /* On a phone the promise sits low over hills whose colour the sky edge does not predict, so it
+     carries its own ground instead of guessing a tone. */
+  .hero-promise,
+  .hero-promise.tone-light {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgb(252 253 251 / 0.9);
+    backdrop-filter: blur(6px);
+    color: var(--forest);
+  }
+
+  .hero-promise .hero-promise-figure,
+  .hero-promise .hero-promise-note {
+    text-shadow: none;
+  }
+
+  .horizon-tick {
+    display: none;
+  }
+
+  .hero-promise.is-scene-only {
+    display: none;
+  }
+
+  .proof-promise {
+    display: block;
+  }
+
+  .lane-detail {
+    width: min(280px, calc(100vw - 40px));
+  }
+
+  .proof-claims {
+    gap: 8px 24px;
+  }
+}

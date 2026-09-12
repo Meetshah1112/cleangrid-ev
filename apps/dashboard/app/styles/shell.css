@@ -1,0 +1,293 @@
+/* The console frame: one thin header over an airy page. */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgb(252 253 251 / 0.9);
+  backdrop-filter: saturate(1.2) blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead-inner {
+  max-width: 1480px;
+  margin-inline: auto;
+  padding-inline: var(--page-x);
+  height: 64px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--forest);
+}
+
+.brand svg {
+  flex: none;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.nav a {
+  position: relative;
+  padding: 10px 14px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--stone);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.nav a:hover {
+  color: var(--forest);
+}
+
+.nav a[aria-current='page'] {
+  color: var(--forest);
+  font-weight: 650;
+}
+
+.nav a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--forest);
+}
+
+.masthead-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13.5px;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--canopy-ink);
+}
+
+/* The one status dot on the page, and it reports a real connection. */
+.live i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--canopy);
+  box-shadow: 0 0 0 3px var(--canopy-soft);
+}
+
+.live.is-polling {
+  color: var(--stone);
+}
+
+.live.is-polling i {
+  background: var(--pebble);
+  box-shadow: 0 0 0 3px var(--mist);
+}
+
+.clock {
+  color: var(--stone);
+  white-space: nowrap;
+}
+
+.site-picker {
+  position: relative;
+}
+
+.site-picker > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 280px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: var(--r-control);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.site-picker > button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-picker > button:hover {
+  border-color: var(--forest);
+}
+
+.site-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: min(340px, calc(100vw - 32px));
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: 0 18px 40px -20px rgb(13 42 31 / 0.35);
+}
+
+.site-menu button {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.site-menu button small {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--stone);
+}
+
+.site-menu button:hover,
+.site-menu button[aria-checked='true'] {
+  background: var(--mist);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--forest);
+  color: var(--paper);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+
+.server-down {
+  max-width: var(--measure);
+  margin: 16px auto 0;
+  padding-inline: var(--page-x);
+}
+
+@media (max-width: 1180px) {
+  .clock-scale {
+    display: none;
+  }
+
+  .site-picker > button {
+    max-width: 200px;
+  }
+}
+
+/*
+ * Below the width where brand, five tabs and the status all fit on one line, the navigation takes
+ * its own row. Before this broke at 860px, a laptop at 1024px pushed the profile badge off the edge.
+ */
+@media (max-width: 1120px) {
+  .masthead-inner {
+    grid-template-columns: auto 1fr;
+    height: auto;
+    padding-block: 10px;
+    row-gap: 6px;
+  }
+
+  .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    margin-inline: calc(var(--page-x) * -1);
+    padding-inline: calc(var(--page-x) - 14px);
+  }
+
+  .masthead-status {
+    justify-content: flex-end;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 860px) {
+  .clock,
+  .live span {
+    display: none;
+  }
+
+  .site-picker > button {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .masthead-inner {
+    column-gap: 12px;
+  }
+
+  .masthead-status {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .site-picker {
+    min-width: 0;
+  }
+
+  .site-picker > button {
+    max-width: 128px;
+    padding: 0 10px;
+  }
+}
+
+/*
+ * Phones: every tab stays on screen. A row that scrolled sideways with its scrollbar hidden put
+ * Grid Flex and Impact past the edge with nothing to say they were there.
+ */
+@media (max-width: 560px) {
+  .nav {
+    justify-content: space-between;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .nav a {
+    padding: 10px 3px;
+    font-size: 13px;
+  }
+
+  .nav a[aria-current='page']::after {
+    left: 3px;
+    right: 3px;
+  }
+}
+
+@media (max-width: 360px) {
+  .nav a {
+    font-size: 12px;
+    padding-inline: 1px;
+  }
+}

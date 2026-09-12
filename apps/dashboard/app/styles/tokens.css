@@ -1,0 +1,60 @@
+/*
+ * CleanGrid console tokens.
+ *
+ * Forest green is the ink. Every other colour means an energy state and is used for nothing else:
+ * lime is renewable availability, sun-gold is price, pale cyan is waiting or fading solar, coral is
+ * a limit or an urgent departure. Nothing is decorative, so a colour on this page is always a claim.
+ *
+ * Fills and strokes use the pure tones. Text uses the "-ink" variant of the same hue, which is
+ * darkened to clear 4.5:1 on paper; the pure lime, gold and cyan do not, and are never set as text
+ * on a light ground.
+ */
+
+:root {
+  --forest: #14392b;
+  --forest-deep: #0d2a1f;
+  --forest-mid: #1f4d3a;
+
+  --canopy: #2f8a5a;
+  --canopy-ink: #22704a;
+  --canopy-soft: #dcefe2;
+
+  --lime: #b9e36b;
+  --lime-soft: #eef8d9;
+
+  --sun: #e2a63b;
+  --sun-ink: #8a5f12;
+
+  --cyan: #9fd6dd;
+  --cyan-ink: #2c6b76;
+
+  --coral: #d9644c;
+  --coral-ink: #b04630;
+  --coral-soft: #fbe6e0;
+
+  --paper: #fcfdfb;
+  --mist: #eff4ef;
+  --stone: #55665d;
+  --pebble: #879890;
+  --rule: #dce6dd;
+
+  --serif: var(--font-hedvig), "Iowan Old Style", Georgia, serif;
+  --sans: var(--font-schibsted), ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  --mono: var(--font-azeret), ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --hand: var(--font-kalam), "Segoe Print", "Bradley Hand", cursive;
+
+  /* One radius for controls, one for pills. Nothing else on the page is a box. */
+  --r-control: 10px;
+  --r-pill: 999px;
+
+  --page-x: clamp(20px, 5vw, 72px);
+  /* The white wave that opens a section overlaps the foot of the one before it by this much. */
+  --wave-h: clamp(36px, 5vw, 78px);
+  --measure: 1320px;
+
+  --t-fast: 160ms;
+  --t-move: 420ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: light;
+}

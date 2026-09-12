@@ -1,0 +1,586 @@
+/* Chapters below the scenery: open, editorial, no boxes. */
+
+.chapter {
+  position: relative;
+  padding-block: 18px 72px;
+  background: var(--paper);
+}
+
+.chapter.is-tight {
+  padding-block: 8px 64px;
+}
+
+.chapter.is-last {
+  padding-bottom: 112px;
+}
+
+/*
+ * A wave opening the next section is drawn over the foot of this one, so whatever comes before a
+ * wave keeps that much clear space at its bottom, plus its own breathing room. Without it the wave
+ * sits on top of the last line of a band and hides it.
+ */
+.chapter:has(+ .chapter > .wave) {
+  padding-bottom: calc(var(--wave-h) + 48px);
+}
+
+.hero:has(+ .chapter > .wave) > .proof,
+.hero:has(+ .chapter > .wave) > .draw-legend {
+  padding-bottom: calc(var(--wave-h) + 24px);
+}
+
+.chapter.is-mist {
+  background: var(--mist);
+}
+
+.chapter > .wrap > .title {
+  margin-bottom: 36px;
+  max-width: 22ch;
+}
+
+.chapter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.chapter .subtitle + .caption {
+  margin-top: 6px;
+  margin-bottom: 18px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 72px);
+  align-items: start;
+}
+
+.split > div > .subtitle {
+  margin-bottom: 18px;
+}
+
+/* A soft ground for a chart, fading up from the page like the lower edge of a hillside. */
+.band {
+  padding: 22px 22px 18px;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 90% at 20% 110%, rgb(185 227 107 / 0.18), transparent 60%),
+    linear-gradient(180deg, rgb(239 244 239 / 0) 0%, var(--mist) 100%);
+}
+
+/* Scheduler activity ----------------------------------------------------------------------- */
+
+.activity ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid var(--canopy-soft);
+  display: grid;
+  gap: 18px;
+}
+
+.activity li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  font-size: 15.5px;
+  line-height: 1.35;
+}
+
+.activity li::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 7px;
+  width: 10px;
+  height: 2px;
+  background: var(--canopy);
+}
+
+.activity li.is-caution::before {
+  background: var(--sun);
+}
+
+.activity .figure {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--canopy-ink);
+}
+
+.activity li.is-caution .figure {
+  color: var(--sun-ink);
+}
+
+.activity-close {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 0;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.activity-close.is-safe {
+  color: var(--canopy-ink);
+}
+
+.activity-close.is-risk {
+  color: var(--coral-ink);
+}
+
+/* Site plan -------------------------------------------------------------------------------- */
+
+.siteplan {
+  position: relative;
+  width: 100%;
+  height: clamp(300px, 30vw, 380px);
+  margin-block: 8px 14px;
+}
+
+/* Only the drawing is clipped to the rounded frame. The detail layer may pass its edge rather than be cut off by it. */
+.siteplan-art {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.siteplan svg {
+  display: block;
+}
+
+.siteplan .lane-detail.is-above {
+  transform: translate(-50%, calc(-100% - 60px));
+}
+
+.siteplan .lane-detail.is-below {
+  transform: translate(-50%, 60px);
+}
+
+.lane-detail.is-inline {
+  position: static;
+  width: auto;
+  transform: none;
+  margin: 0 0 14px;
+  box-shadow: 0 10px 28px -18px rgb(8 24 18 / 0.45);
+}
+
+.siteplan-ground {
+  fill: rgb(214 232 214);
+}
+
+.siteplan-tree circle {
+  fill: rgb(120 170 120 / 0.55);
+}
+
+.siteplan-lane {
+  fill: none;
+  stroke: rgb(240 243 236);
+  stroke-width: 58;
+  stroke-linecap: round;
+}
+
+.siteplan-verge {
+  fill: none;
+  stroke: rgb(170 205 150 / 0.9);
+  stroke-width: 6;
+  stroke-dasharray: 2 16;
+  stroke-linecap: round;
+}
+
+.siteplan-bay {
+  cursor: pointer;
+  outline: none;
+}
+
+.siteplan-slot {
+  stroke: rgb(252 253 251 / 0.95);
+  stroke-width: 2;
+  transition: filter var(--t-fast) var(--ease);
+}
+
+.siteplan-bay:hover .siteplan-slot,
+.siteplan-bay:focus-visible .siteplan-slot,
+.siteplan-bay.is-hovered .siteplan-slot {
+  stroke: var(--forest);
+  stroke-width: 2.5;
+}
+
+.siteplan-bay.is-charging .siteplan-slot { fill: var(--canopy); }
+.siteplan-bay.is-clean .siteplan-slot { fill: var(--lime); }
+.siteplan-bay.is-waiting .siteplan-slot { fill: var(--cyan); }
+.siteplan-bay.is-urgent .siteplan-slot { fill: var(--coral); }
+.siteplan-bay.is-charged .siteplan-slot { fill: var(--canopy-soft); stroke: var(--canopy); }
+.siteplan-bay.is-free .siteplan-slot { fill: rgb(247 250 246); stroke: rgb(190 208 192); stroke-dasharray: 5 4; }
+.siteplan-bay.is-offline .siteplan-slot { fill: rgb(200 208 202); stroke-dasharray: 3 3; }
+
+.siteplan-car {
+  fill: rgb(20 57 43 / 0.62);
+}
+
+.siteplan-number {
+  text-anchor: middle;
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--forest);
+}
+
+/* Sessions --------------------------------------------------------------------------------- */
+
+.sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session + .session {
+  border-top: 1px solid var(--rule);
+}
+
+.session-main {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) minmax(150px, 1.2fr) minmax(90px, 0.8fr) minmax(90px, 0.7fr) minmax(120px, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 16px 4px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 14.5px;
+  color: var(--forest);
+  border-radius: var(--r-control);
+}
+
+.session-main:not(:disabled) {
+  cursor: pointer;
+}
+
+.session-main:not(:disabled):hover {
+  background: var(--mist);
+}
+
+.session.is-selected .session-main {
+  background: var(--mist);
+}
+
+.session-who {
+  display: grid;
+  gap: 1px;
+}
+
+.session-who span,
+.session-deadline span:last-child,
+.session-state {
+  font-size: 13px;
+  color: var(--stone);
+}
+
+.session-energy,
+.session-deadline {
+  display: grid;
+  gap: 5px;
+}
+
+/* A fill with no track behind it: the number carries the comparison. */
+.session-line {
+  display: block;
+  height: 3px;
+  width: 100%;
+  max-width: 160px;
+}
+
+.session-line i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--canopy);
+}
+
+.session-mode {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.session-mode.is-greenest { color: var(--canopy-ink); }
+.session-mode.is-cheapest { color: var(--sun-ink); }
+.session-mode.is-fastest { color: var(--forest); }
+.session-mode.is-balanced { color: var(--cyan-ink); }
+
+.session-warning {
+  margin: 0 4px 14px;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  background: var(--coral-soft);
+  color: var(--coral-ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.session-actions {
+  margin: 0 4px 18px;
+}
+
+/* White ribbon of measurements, used where a page needs a few figures side by side. */
+.ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px clamp(24px, 5vw, 72px);
+  margin: 0;
+  padding-block: 8px;
+}
+
+.ribbon-item {
+  display: grid;
+  gap: 2px;
+  min-width: 150px;
+}
+
+.ribbon-item .figure {
+  font-family: var(--serif);
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1.05;
+}
+
+.ribbon-item .caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tables kept as appendices. */
+.appendix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.appendix th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stone);
+  padding: 0 12px 10px 0;
+}
+
+.appendix td {
+  padding: 12px 12px 12px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.appendix .num {
+  text-align: right;
+}
+
+.scroll-x {
+  overflow-x: auto;
+}
+
+@media (max-width: 980px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .session-main {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+
+  .session-energy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .session-state {
+    grid-column: 1 / -1;
+  }
+
+  .chapter-head {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+/* Forecast ----------------------------------------------------------------------------------- */
+
+.hero-note {
+  position: absolute;
+  right: var(--page-x);
+  top: clamp(60px, 11vh, 120px);
+  margin: 0;
+  max-width: 220px;
+  text-align: right;
+  transform: rotate(-3deg);
+}
+
+.hero-note.tone-light {
+  text-shadow: 0 1px 12px rgb(8 20 32 / 0.5);
+}
+
+.hand {
+  font-family: var(--hand);
+}
+
+.scene-empty {
+  position: absolute;
+  left: var(--page-x);
+  bottom: 48px;
+  margin: 0;
+  color: var(--paper);
+}
+
+.display.is-close {
+  font-size: clamp(34px, 4vw, 56px);
+  max-width: 21ch;
+}
+
+.hero.is-close .actions .hand {
+  font-size: 22px;
+}
+
+.pinned {
+  margin-top: 26px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--lime-soft);
+}
+
+.pinned .body {
+  color: var(--forest);
+  max-width: none;
+}
+
+.pinned-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14.5px;
+}
+
+.moments {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 28px clamp(24px, 3vw, 44px);
+}
+
+.moment {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.moment.is-lead {
+  grid-row: span 2;
+}
+
+.moment .scene {
+  border-radius: 28px 28px 120px 28px / 28px 28px 60px 28px;
+}
+
+.moment.is-lead .scene {
+  height: 420px;
+}
+
+.moment:not(.is-lead) .scene {
+  height: 190px;
+}
+
+.moment-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.moment-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--canopy-ink);
+}
+
+.detail {
+  border-top: 1px solid var(--rule);
+  padding-top: 18px;
+}
+
+.detail summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail summary .subtitle::after {
+  content: ' +';
+  color: var(--stone);
+}
+
+.detail[open] summary .subtitle::after {
+  content: ' -';
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: minmax(180px, auto) 1fr;
+  gap: 10px 24px;
+  margin: 20px 0;
+  font-size: 14.5px;
+}
+
+.detail-list div {
+  display: contents;
+}
+
+.detail-list dt {
+  color: var(--stone);
+}
+
+.detail-list dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 860px) {
+  .moments {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .moment.is-lead {
+    grid-row: auto;
+  }
+
+  .moment.is-lead .scene {
+    height: 260px;
+  }
+
+  .hero-note {
+    display: none;
+  }
+
+  .detail-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .detail-list dd {
+    margin-bottom: 10px;
+  }
+}

@@ -17,7 +17,12 @@ export type IconName =
   | 'bolt'
   | 'check'
   | 'alert'
-  | 'clock';
+  | 'clock'
+  | 'leaf'
+  | 'sun'
+  | 'wind'
+  | 'moon'
+  | 'arrow';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   // A site plan: one wide bay and two stacked ones.
@@ -74,6 +79,27 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M12 7.2V12l3.2 2" />
     </>
   ),
+  // Renewable: a leaf with its vein.
+  leaf: (
+    <>
+      <path d="M5 19c0-8.2 5.6-13.6 14-14-.3 8.4-5.7 14-14 14" />
+      <path d="M5.5 18.5c3-3.6 6.2-6.4 9.8-8.6" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
+    </>
+  ),
+  wind: (
+    <>
+      <path d="M3 9h11a3 3 0 1 0-3-3" />
+      <path d="M3 14h15a3 3 0 1 1-3 3" />
+    </>
+  ),
+  moon: <path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z" />,
+  arrow: <path d="M4 12h15m-5-5 5 5-5 5" />,
 };
 
 const FILLED: ReadonlySet<IconName> = new Set(['flex', 'bolt']);

@@ -2,68 +2,44 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Console } from '../../components/Console';
-import { NetworkMap } from '../../components/NetworkMap';
-import { RampPlan, type Ramp } from '../../components/RampPlan';
+import { NetworkField } from '../../components/grid/NetworkField';
+import { RequestLine } from '../../components/grid/RequestLine';
+import { ResponsePathLayer, ResponsePathOverlay, pathLayout } from '../../components/grid/ResponsePath';
+import { Scene, washTone } from '../../components/scene/Scene';
+import { Wave } from '../../components/scene/Wave';
 import { api, gridApi } from '../../lib/api';
+import { STAGE_LABEL, drawnWhenAsked, measuredResult, previewRequest, stageOf, windowEffect, type FlexStage } from '../../lib/flexRead';
 import { clockTime, kw } from '../../lib/format';
-import type { FlexEvent, GridSite } from '../../lib/types';
+import type { LiveSite } from '../../lib/useLiveSite';
+import type { FlexEvent, GridSite, Site } from '../../lib/types';
 
 /**
- * Grid-flex response. A network operator asks a site to hold below a share of its connection;
- * the site answers by reshuffling charging, not by cutting anyone off.
+ * Grid Flex. A network operator asks a site to draw less for a while; the site answers by moving
+ * charging that can move, and never by cutting off a car that would then miss its departure.
  */
-
-const REDUCTIONS = [20, 40, 60];
-
 export default function GridPage() {
-  return (
-    <Console page="grid">
-      {({ site, live, selectSite }) => (
-        <GridBody
-          siteId={site?.id ?? null}
-          siteName={site?.name ?? ''}
-          timezone={site?.timezone ?? 'Europe/London'}
-          connectionKw={site?.gridConnectionKw ?? 0}
-          nowMs={live.nowMs}
-          flexEvents={live.flexEvents}
-          atRisk={live.sessions.filter((session) => session.status === 'active' && session.deadlineRisk).length}
-          activeSessions={live.sessions.filter((session) => session.status === 'active').length}
-          onChanged={live.refresh}
-          onSelectSite={selectSite}
-        />
-      )}
-    </Console>
-  );
+  return <Console page="grid">{({ site, live, selectSite }) => <GridBody site={site} live={live} onSelectSite={selectSite} />}</Console>;
 }
 
-function GridBody({
-  siteId,
-  siteName,
-  timezone,
-  connectionKw,
-  nowMs,
-  flexEvents,
-  atRisk,
-  activeSessions,
-  onChanged,
-  onSelectSite,
-}: {
-  readonly siteId: string | null;
-  readonly siteName: string;
-  readonly timezone: string;
-  readonly connectionKw: number;
-  readonly nowMs: number;
-  readonly flexEvents: FlexEvent[];
-  readonly atRisk: number;
-  readonly activeSessions: number;
-  readonly onChanged: () => void;
-  readonly onSelectSite: (siteId: string) => void;
-}) {
+const HOUR = 3_600_000;
+const REDUCTIONS = [20, 40, 60];
+const DURATIONS = [1, 2, 3];
+const OPEN: readonly FlexStage[] = ['requested', 'accepted', 'active'];
+
+function GridBody({ site, live, onSelectSite }: { readonly site: Site | null; readonly live: LiveSite; readonly onSelectSite: (siteId: string) => void }) {
   const [network, setNetwork] = useState<GridSite[]>([]);
   const [reduction, setReduction] = useState(40);
   const [hours, setHours] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sentId, setSentId] = useState<string | null>(null);
+  // The server records a withdrawal and a refusal the same way; the page remembers which this was.
+  const [withdrawn, setWithdrawn] = useState<readonly string[]>([]);
+
+  const { nowMs, plan, overview } = live;
+  const siteId = site?.id ?? null;
+  const tz = site?.timezone ?? 'Europe/London';
+  const connectionKw = site?.gridConnectionKw ?? 0;
 
   const loadNetwork = useCallback(() => {
     void gridApi
@@ -79,268 +55,452 @@ function GridBody({
   }, [loadNetwork]);
 
   const here = network.find((entry) => entry.siteId === siteId) ?? null;
-  // Before the browser has a clock, every time on this page would be measured from the epoch.
-  const clockKnown = nowMs > 0;
-  const live = flexEvents.find((event) => event.status === 'accepted' && event.endsMs > nowMs) ?? null;
-  // Measured against what the site is drawing, so the percentage means what an operator expects.
-  const drawNowKw = here?.currentDrawKw ?? 0;
-  const reduceFromKw = drawNowKw > 0.5 ? drawNowKw : connectionKw;
-  const capKw = Math.round(reduceFromKw * (1 - reduction / 100) * 10) / 10;
+  const drawKw = here?.currentDrawKw ?? overview?.siteDemandKw ?? 0;
+  const active = live.sessions.filter((session) => session.status === 'active');
+  const atRisk = active.filter((session) => session.deadlineRisk).length;
 
-  /**
-   * The shape of the response: the request in force if there is one, otherwise the one the
-   * controls above would send. Per-session figures are the site's flexible load spread evenly,
-   * which is what the driver sees on their phone when the cap lands.
-   */
-  const drawKw = drawNowKw;
-  const targetKw = live ? live.capKw : capKw;
-  const flexibleKw = here?.flexibleKw ?? 0;
-  const ramp: Ramp = {
-    startsMs: live ? live.startsMs : nowMs + 60_000,
-    endsMs: live ? live.endsMs : nowMs + 60_000 + hours * 3_600_000,
-    capKw: Math.min(targetKw, drawKw),
-    connectionKw,
+  // The request that matters now: one in force, then one about to start, then one awaiting an answer.
+  const open = nowMs > 0 ? live.flexEvents.filter((event) => OPEN.includes(stageOf(event, nowMs))) : [];
+  const rank: Record<string, number> = { active: 0, accepted: 1, requested: 2 };
+  const current = [...open].sort((a, b) => (rank[stageOf(a, nowMs)] ?? 3) - (rank[stageOf(b, nowMs)] ?? 3) || b.createdMs - a.createdMs)[0] ?? null;
+  const stage = current ? stageOf(current, nowMs) : null;
+  const effect = current ? windowEffect(plan, current, live.sessions) : null;
+  // What the plan actually gives back against what the site drew when asked, not what was asked for.
+  const releasedKw = current ? Math.max(0, drawnWhenAsked(current, connectionKw) - (effect ? Math.max(current.capKw, effect.plannedPeakKw) : current.capKw)) : 0;
+
+  const preview = previewRequest({
+    sessions: live.sessions,
+    plan,
     drawKw,
-    sessions: activeSessions,
-    perSessionBeforeKw: activeSessions > 0 ? flexibleKw / activeSessions : 0,
-    perSessionAfterKw:
-      activeSessions > 0 ? Math.max(0, flexibleKw - Math.max(0, drawKw - targetKw)) / activeSessions : 0,
-  };
+    connectionKw,
+    baseKw: overview?.baseLoadKw ?? plan?.baseLoadKw[0] ?? 0,
+    reductionPct: reduction,
+    hours,
+    nowMs,
+  });
+  const flexibleKw = here?.flexibleKw ?? 0;
+  const movable = active.length - preview.mustCharge.length;
+
+  const sent = live.flexEvents.find((event) => event.id === sentId) ?? null;
+  const sentStage = sent && nowMs > 0 ? stageOf(sent, nowMs) : null;
+
+  const frameStart = nowMs > 0 ? Math.floor(Math.min(current?.startsMs ?? nowMs, nowMs) / HOUR) * HOUR - 3 * HOUR : 0;
+  const frameEnd = Math.max((current?.endsMs ?? 0) + 3 * HOUR, nowMs + 6 * HOUR);
+  const frameSpan = nowMs > 0 ? Math.max(9 * HOUR, Math.ceil((frameEnd - frameStart) / HOUR) * HOUR) : 9 * HOUR;
 
   const request = (): void => {
     if (!siteId) return;
     setBusy(true);
+    setError(null);
     void gridApi
-      .requestReduction({ siteId, reductionPct: reduction, hours, drawKw: drawNowKw, connectionKw, nowMs })
-      .then(() => {
+      .requestReduction({ siteId, reductionPct: reduction, hours, drawKw, connectionKw, nowMs })
+      .then(async (event) => {
+        setSentId(event.id);
+        await live.refresh();
         loadNetwork();
-        onChanged();
       })
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setBusy(false));
   };
 
-  const withdraw = (eventId: string): void => {
+  const respond = (event: FlexEvent, accept: boolean): void => {
     if (!siteId) return;
     setBusy(true);
+    setError(null);
     void api
-      .respondToFlex(siteId, eventId, false)
-      .then(() => onChanged())
+      .respondToFlex(siteId, event.id, accept)
+      .then(async () => {
+        if (!accept && stageOf(event, nowMs) !== 'requested') setWithdrawn((ids) => [...ids, event.id]);
+        await live.refresh();
+      })
       .catch((caught: Error) => setError(caught.message))
       .finally(() => setBusy(false));
   };
 
+  const actionLabel = busy
+    ? 'Requesting'
+    : sentStage === 'requested'
+      ? 'Waiting for the site to accept'
+      : sentStage === 'accepted' && sent
+        ? `Accepted, starts ${clockTime(sent.startsMs, tz)}`
+        : sentStage === 'active' && sent
+          ? `In force until ${clockTime(sent.endsMs, tz)}`
+          : `Reduce site load ${reduction}% for ${hours === 1 ? 'one hour' : `${hours} hours`}`;
+
   return (
     <>
-      <h1 className="headline">Respond to the grid without breaking departures.</h1>
-      <p className="subline">A flexible site is easier for the network to plan around.</p>
-      {error && <div className="error">{error}</div>}
+      <section className="hero" aria-labelledby="grid-title">
+        <Scene
+          className="is-hero"
+          wash
+          startMs={frameStart}
+          spanMs={frameSpan}
+          nowMs={nowMs}
+          timezone={tz}
+          horizon={0.6}
+          features={{ turbines: true, solar: false, town: true }}
+          label={`The hours around now at ${site?.name ?? 'this site'}, with its draw on the grid`}
+          layers={(geometry) => (
+            <ResponsePathLayer
+              layout={pathLayout({ geometry, startMs: frameStart, spanMs: frameSpan, nowMs, demand: live.demand, plan, connectionKw, event: current, timezone: tz })}
+              width={geometry.width}
+              nowX={geometry.nowX}
+            />
+          )}
+        >
+          {(geometry) => {
+            const layout = pathLayout({ geometry, startMs: frameStart, spanMs: frameSpan, nowMs, demand: live.demand, plan, connectionKw, event: current, timezone: tz });
+            const narrow = geometry.width < 760;
+            return (
+              <>
+                <div className={`hero-copy tone-${washTone(geometry, 'left')}`}>
+                  <p className="eyebrow">Grid Flex · Live response</p>
+                  <h1 id="grid-title" className="display">
+                    Give the grid room to breathe.
+                  </h1>
+                  <p className="lede is-wide">
+                    CleanGrid makes capacity available when the network needs it, then moves flexible cars into a better moment without breaking a
+                    departure promise.
+                  </p>
+                </div>
 
-      {live ? (
-        <div className="banner">
-          <div>
-            <div className="when">
-              Active request · in force until {clockTime(live.endsMs, timezone)} · {siteName}
-            </div>
-            <div className="what">
-              Hold below {kw(live.capKw, 0)} kW for{' '}
-              {Math.max(1, Math.round((live.endsMs - live.startsMs) / 60_000))} minutes
-            </div>
-          </div>
-          <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span className={atRisk === 0 ? 'chip' : 'chip red'}>{atRisk === 0 ? 'Compliant' : `${atRisk} at risk`}</span>
-            <button type="button" className="btn" onClick={() => withdraw(live.id)} disabled={busy}>
-              Withdraw
-            </button>
-          </span>
-        </div>
-      ) : (
-        <div className="banner">
-          <div>
-            <div className="when">No request in force</div>
-            <div className="what">The site is running to its own plan</div>
-          </div>
-          <span className="chip plain">standing by</span>
-        </div>
-      )}
+                <div
+                  className={`hero-promise flex-state is-${stage ?? 'standby'} tone-${washTone(geometry, 'right')}`}
+                  style={narrow ? { top: layout.top - 170, bottom: 'auto' } : undefined}
+                >
+                  <FlexState event={current} stage={stage} releasedKw={releasedKw} atRisk={atRisk} busy={busy} timezone={tz} onRespond={respond} />
+                </div>
 
-      <div className="rail" style={{ marginTop: 14 }}>
-        <div className="rail-cell">
-          <div className="rail-label">Available to shed</div>
-          <div className="rail-value">
-            {kw(here?.flexibleKw ?? 0)}
-            <small>kW</small>
-          </div>
-          <div className="rail-sub">across {activeSessions} sessions</div>
-        </div>
-        <div className="rail-cell">
-          <div className="rail-label">Deadline risk</div>
-          <div className="rail-value" style={{ color: atRisk > 0 ? 'var(--red)' : undefined }}>
-            {atRisk}
-          </div>
-          <div className="rail-sub">drivers affected</div>
-        </div>
-        <div className="rail-cell">
-          <div className="rail-label">Drawing now</div>
-          <div className="rail-value">
-            {kw(here?.currentDrawKw ?? 0)}
-            <small>kW</small>
-          </div>
-          <div className="rail-sub">of {kw(connectionKw, 0)} kW connection</div>
-        </div>
-        <div className="rail-cell">
-          <div className="rail-label">Would hold below</div>
-          <div className="rail-value">
-            {kw(capKw, 0)}
-            <small>kW</small>
-          </div>
-          <div className="rail-sub">{reduction}% below the {kw(reduceFromKw, 0)} kW drawn now</div>
-        </div>
-      </div>
+                <ResponsePathOverlay layout={layout} geometry={geometry} event={current} releasedKw={releasedKw} connectionKw={connectionKw} timezone={tz} />
+              </>
+            );
+          }}
+        </Scene>
 
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-head">
-          <h2>Sites under this operator</h2>
-          <span className="note">dot size is how much of its connection each site is using</span>
+        <div className="proof">
+          <div className="wrap">
+            {current && (stage === 'active' || stage === 'accepted') ? (
+              <p className="proof-claims">
+                <span>
+                  <strong>{kw(releasedKw)} kW</strong> released
+                </span>
+                <span>
+                  <strong>{atRisk}</strong> driver{atRisk === 1 ? '' : 's'} at risk
+                </span>
+                <span>
+                  <strong>{effect ? effect.heldBack : '--'}</strong> session{effect?.heldBack === 1 ? '' : 's'} reshaped
+                </span>
+              </p>
+            ) : (
+              <p className="proof-claims">
+                <span>
+                  <strong>{kw(flexibleKw)} kW</strong> available to shed across {active.length} session{active.length === 1 ? '' : 's'}
+                </span>
+                <span>
+                  <strong>{atRisk}</strong> driver{atRisk === 1 ? '' : 's'} at deadline risk
+                </span>
+              </p>
+            )}
+            <p className="proof-facts">
+              <span>
+                Drawing now {kw(drawKw)} kW of {kw(connectionKw, 0)} kW connection
+              </span>
+              {current ? (
+                <span>
+                  Holding below {kw(current.capKw, 0)} kW, from {clockTime(current.startsMs, tz)} to {clockTime(current.endsMs, tz)}
+                </span>
+              ) : (
+                <span>
+                  Would hold below {kw(preview.capKw, 0)} kW, {reduction}% below the {kw(preview.fromKw, 0)} kW drawn now
+                </span>
+              )}
+              {effect ? (
+                <span>
+                  {effect.charging} car{effect.charging === 1 ? '' : 's'} keep charging inside the window, planned peak {kw(effect.plannedPeakKw)} kW
+                </span>
+              ) : null}
+              {current && effect && effect.basePeakKw > current.capKw + 0.05 ? (
+                <span className="is-over">
+                  The building alone draws {kw(effect.basePeakKw)} kW in the window, above the cap. Only charging can move.
+                </span>
+              ) : null}
+            </p>
+          </div>
         </div>
-        <NetworkMap sites={network} selectedId={siteId} nowMs={nowMs} onSelect={onSelectSite} />
       </section>
 
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-head">
-          <h2>{live ? 'Response in force' : 'Automated response plan'}</h2>
-          <span className="note">
-            {live ? 'the optimiser is already holding the site below the cap' : 'what would happen if this request arrived'}
-          </span>
-        </div>
-        {clockKnown ? (
-          <RampPlan ramp={ramp} timezone={timezone} live={live !== null} />
-        ) : (
-          <p className="empty">Reading the site clock.</p>
-        )}
-      </section>
-
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-head">
-          <h2>Ask for a reduction</h2>
-          <span className="note">the site honours it automatically under its flexibility contract</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-          {REDUCTIONS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={value === reduction ? 'btn primary' : 'btn'}
-              onClick={() => setReduction(value)}
-              aria-pressed={value === reduction}
-            >
-              {value}%
-            </button>
-          ))}
-          <span className="note" style={{ marginInline: 6 }}>
-            for
-          </span>
-          {[1, 2, 3].map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={value === hours ? 'btn primary' : 'btn'}
-              onClick={() => setHours(value)}
-              aria-pressed={value === hours}
-            >
-              {value} h
-            </button>
-          ))}
-        </div>
-        <button type="button" className="btn primary" onClick={request} disabled={busy || !siteId} style={{ fontSize: 15, padding: '10px 16px' }}>
-          {busy ? 'Sending…' : `Reduce site load ${reduction}% for ${hours === 1 ? 'one hour' : `${hours} hours`}`}
-        </button>
-        <p className="note" style={{ marginTop: 10 }}>
-          The optimiser moves charging out of the window rather than cutting cars off. Anything that cannot move without
-          missing a deadline keeps charging, and shows up as deadline risk above.
-        </p>
-      </section>
-
-      <div className="grid two" style={{ marginTop: 14 }}>
-        <section className="card">
-          <div className="card-head">
-            <h2>Connected sites</h2>
-            <span className="note">what the network can see</span>
-          </div>
-          {network.length === 0 ? (
-            <p className="empty">No sites connected.</p>
-          ) : (
-            <div className="scroll-x">
-      <table className="data">
-              <thead>
-                <tr>
-                  <th>site</th>
-                  <th className="num">drawing</th>
-                  <th className="num">connection</th>
-                  <th className="num">flexible</th>
-                  <th className="num">cars</th>
-                </tr>
-              </thead>
-              <tbody>
-                {network.map((entry) => (
-                  <tr key={entry.siteId}>
-                    <td>{entry.name}</td>
-                    <td className="num" style={{ color: entry.currentDrawKw > entry.gridConnectionKw ? 'var(--red)' : undefined }}>
-                      {kw(entry.currentDrawKw)} kW
-                    </td>
-                    <td className="num">{kw(entry.gridConnectionKw, 0)} kW</td>
-                    <td className="num" style={{ color: 'var(--green)' }}>
-                      {kw(entry.flexibleKw)} kW
-                    </td>
-                    <td className="num">{entry.carsPluggedIn}</td>
-                  </tr>
+      <section className="chapter" aria-labelledby="ask-title">
+        <Wave tone="paper" />
+        <div className="wrap ask">
+          <div className="ask-control">
+            <h2 id="ask-title" className="title">
+              Ask for a reduction
+            </h2>
+            <div className="ask-choices">
+              <div className="segmented" role="group" aria-label="How much to reduce by">
+                {REDUCTIONS.map((value) => (
+                  <button key={value} type="button" aria-pressed={value === reduction} onClick={() => setReduction(value)}>
+                    {value}%
+                  </button>
                 ))}
-              </tbody>
-            </table>
-      </div>
-          )}
-        </section>
+              </div>
+              <span className="caption">for</span>
+              <div className="segmented" role="group" aria-label="For how long">
+                {DURATIONS.map((value) => (
+                  <button key={value} type="button" aria-pressed={value === hours} onClick={() => setHours(value)}>
+                    {value} h
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <section className="card">
-          <div className="card-head">
-            <h2>Requests</h2>
-            <span className="note">{siteName}</span>
+            <dl className="ask-preview" aria-live="polite">
+              <div>
+                <dt>{preview.releasedKw < preview.askedKw - 0.05 ? `Releases, of ${kw(preview.askedKw)} kW asked` : 'Releases'}</dt>
+                <dd>{kw(preview.releasedKw)} kW</dd>
+              </div>
+              <div>
+                <dt>Charging reshaped</dt>
+                <dd>
+                  {preview.affected} car{preview.affected === 1 ? '' : 's'}
+                </dd>
+              </div>
+              <div className={preview.atRisk > 0 ? 'is-risk' : ''}>
+                <dt>Deadline risk</dt>
+                <dd>
+                  {preview.atRisk} driver{preview.atRisk === 1 ? '' : 's'}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="ask-action">
+              <button type="button" className="btn is-primary" onClick={request} disabled={busy || !siteId || nowMs <= 0 || current !== null}>
+                {actionLabel}
+              </button>
+              {current && stage !== 'requested' ? (
+                <button type="button" className="btn" onClick={() => respond(current, false)} disabled={busy}>
+                  Withdraw from this request
+                </button>
+              ) : null}
+            </p>
+            {current && !sent ? <p className="caption">One request is already open for this site. Withdraw it before asking again.</p> : null}
+            {sentStage === 'declined' || sentStage === 'cancelled' ? (
+              <p className="notice is-calm">
+                Your last request was {sent && withdrawn.includes(sent.id) ? 'withdrawn' : STAGE_LABEL[sentStage]}. The site is back on its own plan.
+              </p>
+            ) : null}
+            {preview.baseAboveCapKw !== null && !current ? (
+              <p className="notice is-error">
+                The building&apos;s own load reaches {kw(preview.baseAboveCapKw)} kW in this window, above the {kw(preview.capKw, 0)} kW cap. CleanGrid can
+                only move charging, so the site cannot hold below it.
+              </p>
+            ) : null}
+            {sentStage === 'completed' && sent ? (
+              <p className="notice is-calm">
+                Your last request completed at {clockTime(sent.endsMs, tz)}. See the result in the requests below.
+              </p>
+            ) : null}
+            {error ? (
+              <p className="notice is-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <p className="body">
+              The optimiser moves charging out of the window rather than cutting cars off. Anything that cannot move without missing a deadline
+              keeps charging, and shows up as deadline risk.
+            </p>
           </div>
-          {flexEvents.length === 0 ? (
-            <p className="empty">Nothing asked for yet.</p>
-          ) : (
-            <div className="scroll-x">
-      <table className="data">
-              <thead>
-                <tr>
-                  <th>window</th>
-                  <th className="num">cap</th>
-                  <th>status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...flexEvents]
-                  .sort((a, b) => b.createdMs - a.createdMs)
-                  .slice(0, 8)
-                  .map((event) => (
-                    <tr key={event.id}>
-                      <td>
-                        {clockTime(event.startsMs, timezone)}&ndash;{clockTime(event.endsMs, timezone)}
-                      </td>
-                      <td className="num">{kw(event.capKw, 0)} kW</td>
-                      <td>
-                        <span className={`pill${event.status === 'declined' ? ' risk' : ''}`}>
-                          {event.status === 'accepted' && event.endsMs > nowMs ? 'in force' : event.status}
-                        </span>
-                      </td>
+
+          <div className="ask-shape">
+            <h3 className="subtitle">{current ? 'The response in force' : 'Automated response plan'}</h3>
+            {nowMs > 0 ? (
+              <RequestLine
+                ramp={
+                  current
+                    ? { startsMs: current.startsMs, endsMs: current.endsMs, capKw: current.capKw, connectionKw, drawKw: drawnWhenAsked(current, connectionKw) }
+                    : { startsMs: nowMs + 60_000, endsMs: nowMs + 60_000 + hours * HOUR, capKw: preview.capKw, connectionKw, drawKw: preview.fromKw }
+                }
+                timezone={tz}
+              />
+            ) : (
+              <p className="empty">Reading the site clock.</p>
+            )}
+            <p className="caption">
+              {current ? 'Now holding: ' : 'If accepted: '}
+              {movable} flexible session{movable === 1 ? '' : 's'} step from {kw(active.length > 0 ? flexibleKw / active.length : 0)} kW to{' '}
+              {kw(active.length > 0 ? Math.max(0, flexibleKw - preview.releasedKw) / active.length : 0)} kW each.
+              {preview.mustCharge.length > 0
+                ? ` ${preview.mustCharge.length} car${preview.mustCharge.length === 1 ? '' : 's'} cannot move without missing a deadline and keep charging.`
+                : ' Cars that cannot move without missing a deadline keep charging and are counted as deadline risk.'}{' '}
+              Estimated from each car&apos;s energy and deadline; the optimiser&apos;s own plan replaces it once the request is accepted.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="chapter is-mist" aria-labelledby="network-title">
+        <Wave tone="mist" />
+        <div className="wrap">
+          <h2 id="network-title" className="title">
+            The network, site by site.
+          </h2>
+          <p className="body chapter-lede">Each point sits where the site is. It grows and glows with how much of its connection it is using.</p>
+          <NetworkField sites={network} selectedId={siteId} nowMs={nowMs} reductionPct={reduction} onSelect={onSelectSite} />
+        </div>
+      </section>
+
+      <section className="chapter is-last" aria-label="Connected sites and requests">
+        <Wave tone="paper" />
+        <div className="wrap appendix-pair">
+          <div>
+            <h2 className="subtitle">Connected sites</h2>
+            {network.length === 0 ? (
+              <p className="empty">No sites connected.</p>
+            ) : (
+              <div className="scroll-x">
+                <table className="appendix">
+                  <thead>
+                    <tr>
+                      <th>Site</th>
+                      <th className="num">Drawing</th>
+                      <th className="num is-wide-only">Connection</th>
+                      <th className="num">Flexible</th>
+                      <th className="num">Cars</th>
                     </tr>
-                  ))}
-              </tbody>
-            </table>
-      </div>
-          )}
-        </section>
-      </div>
+                  </thead>
+                  <tbody>
+                    {network.map((entry) => (
+                      <tr key={entry.siteId} className={entry.siteId === siteId ? 'is-selected' : ''}>
+                        <td>{entry.name}</td>
+                        <td className={`num${entry.currentDrawKw > entry.gridConnectionKw ? ' is-over' : ''}`}>
+                          {kw(entry.currentDrawKw)} kW
+                          <span className="is-narrow-only">of {kw(entry.gridConnectionKw, 0)} kW</span>
+                        </td>
+                        <td className="num is-wide-only">{kw(entry.gridConnectionKw, 0)} kW</td>
+                        <td className="num">{kw(entry.flexibleKw)} kW</td>
+                        <td className="num">{entry.carsPluggedIn}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="subtitle">Requests</h2>
+            {live.flexEvents.length === 0 ? (
+              <p className="empty">Nothing asked for yet.</p>
+            ) : (
+              <div className="scroll-x">
+                <table className="appendix">
+                  <thead>
+                    <tr>
+                      <th>Window</th>
+                      <th className="num">Cap</th>
+                      <th>Status</th>
+                      <th>Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...live.flexEvents]
+                      .sort((a, b) => b.createdMs - a.createdMs)
+                      .slice(0, 8)
+                      .map((event) => {
+                        const eventStage = nowMs > 0 ? stageOf(event, nowMs) : 'requested';
+                        const result = eventStage === 'completed' ? measuredResult(live.demand, event) : null;
+                        return (
+                          <tr key={event.id}>
+                            <td>
+                              {clockTime(event.startsMs, tz)} to {clockTime(event.endsMs, tz)}
+                            </td>
+                            <td className="num">{kw(event.capKw, 0)} kW</td>
+                            <td>
+                              <span className={`status${eventStage === 'active' ? ' is-risk' : eventStage === 'completed' ? ' is-good' : ''}`}>
+                                {eventStage === 'declined' && withdrawn.includes(event.id) ? 'withdrawn' : STAGE_LABEL[eventStage]}
+                              </span>
+                            </td>
+                            <td>
+                              {result
+                                ? result.held
+                                  ? `Held, metered peak ${kw(result.peakKw)} kW`
+                                  : `Metered peak ${kw(result.peakKw)} kW, ${kw(result.peakKw - event.capKw)} kW over`
+                                : eventStage === 'completed'
+                                  ? 'No meter data for the window'
+                                  : eventStage === 'active'
+                                    ? 'Holding now'
+                                    : ''}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** The hero's statement of where the site stands with the network. */
+function FlexState({
+  event,
+  stage,
+  releasedKw,
+  atRisk,
+  busy,
+  timezone,
+  onRespond,
+}: {
+  readonly event: FlexEvent | null;
+  readonly stage: FlexStage | null;
+  readonly releasedKw: number;
+  readonly atRisk: number;
+  readonly busy: boolean;
+  readonly timezone: string;
+  readonly onRespond: (event: FlexEvent, accept: boolean) => void;
+}) {
+  if (!event || !stage) {
+    return (
+      <>
+        <p className="hero-promise-figure">
+          Standing by <span>No request in force</span>
+        </p>
+        <p className="hero-promise-note">This site is running to its own plan.</p>
+      </>
+    );
+  }
+  const span = `${clockTime(event.startsMs, timezone)} to ${clockTime(event.endsMs, timezone)}`;
+  if (stage === 'requested') {
+    return (
+      <>
+        <p className="hero-promise-figure">
+          Request received <span>{span}</span>
+        </p>
+        <p className="hero-promise-note">Hold below {kw(event.capKw, 0)} kW. Nothing changes until the site accepts.</p>
+        <p className="flex-actions">
+          <button type="button" className="btn is-primary is-small" onClick={() => onRespond(event, true)} disabled={busy}>
+            Accept
+          </button>
+          <button type="button" className="btn is-glass is-small" onClick={() => onRespond(event, false)} disabled={busy}>
+            Decline
+          </button>
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="hero-promise-figure">
+        {stage === 'active' ? `${kw(releasedKw)} kW` : 'Accepted'} <span>{stage === 'active' ? `released until ${clockTime(event.endsMs, timezone)}` : `starts ${clockTime(event.startsMs, timezone)}`}</span>
+      </p>
+      <p className="hero-promise-note">
+        Flex request {span}, holding below {kw(event.capKw, 0)} kW.{' '}
+        {atRisk === 0 ? 'Every departure still protected.' : `${atRisk} driver${atRisk === 1 ? '' : 's'} at risk.`}
+      </p>
     </>
   );
 }

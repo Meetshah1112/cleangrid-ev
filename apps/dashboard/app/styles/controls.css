@@ -1,0 +1,164 @@
+/* Controls. Few of them, and each looks like what it does. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: var(--r-control);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--forest);
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--forest);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.btn.is-primary {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: var(--paper);
+}
+
+.btn.is-primary:hover:not(:disabled) {
+  background: var(--forest-mid);
+  border-color: var(--forest-mid);
+}
+
+/* Over scenery a quiet button needs its own ground to stay legible. */
+.btn.is-glass {
+  background: rgb(252 253 251 / 0.9);
+  border-color: rgb(252 253 251 / 0.9);
+  backdrop-filter: blur(6px);
+}
+
+.btn.is-small {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.link-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--forest);
+  text-decoration: none;
+  border-bottom: 1.5px solid currentColor;
+  padding-bottom: 2px;
+  transition: gap var(--t-fast) var(--ease);
+}
+
+.link-action:hover {
+  gap: 12px;
+}
+
+/* A set of mutually exclusive choices, shown as one control rather than loose buttons. */
+.segmented {
+  display: inline-flex;
+  padding: 4px;
+  gap: 2px;
+  border-radius: var(--r-pill);
+  background: var(--mist);
+}
+
+.segmented button {
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--stone);
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.segmented button:hover {
+  color: var(--forest);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--forest);
+  box-shadow: 0 1px 2px rgb(20 57 43 / 0.12);
+}
+
+/* Status in words, with the colour as support rather than the message. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--mist);
+  color: var(--forest);
+  white-space: nowrap;
+}
+
+.status.is-good {
+  background: var(--canopy-soft);
+  color: var(--canopy-ink);
+}
+
+.status.is-risk {
+  background: var(--coral-soft);
+  color: var(--coral-ink);
+}
+
+.status.is-glass {
+  background: rgb(252 253 251 / 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.select {
+  appearance: none;
+  min-height: 34px;
+  padding: 0 30px 0 12px;
+  border-radius: var(--r-control);
+  border: 1px solid var(--rule);
+  background: var(--paper)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2314392b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 4.5 3 3 3-3'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--forest);
+}
+
+.select:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

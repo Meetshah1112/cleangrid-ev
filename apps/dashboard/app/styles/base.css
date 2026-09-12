@@ -1,0 +1,172 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--forest);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--canopy);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Tabular figures only in the mono trace and the serif figures. In the grotesk they also space out
+   the colon and the decimal point, so 04:51 reads 04 : 51; its columns line up by right alignment. */
+.trace {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The page itself never scrolls sideways; wide charts scroll inside their own frame. */
+.page {
+  overflow-x: clip;
+}
+
+.wrap {
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--page-x);
+}
+
+/* Type ----------------------------------------------------------------------------------- */
+
+.display {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(40px, 5.4vw, 78px);
+  line-height: 1.02;
+  letter-spacing: -0.018em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(28px, 3.1vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.012em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.subtitle {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(21px, 1.9vw, 26px);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.lede {
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.45;
+  max-width: 34ch;
+  margin: 0;
+}
+
+.body {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--stone);
+  max-width: 62ch;
+  margin: 0;
+}
+
+.caption {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--stone);
+  margin: 0;
+}
+
+.hand {
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+/* Feedback -------------------------------------------------------------------------------- */
+
+.notice {
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  margin: 0;
+}
+
+.notice.is-error {
+  background: var(--coral-soft);
+  color: var(--coral-ink);
+}
+
+.notice.is-calm {
+  background: var(--mist);
+  color: var(--forest);
+}
+
+.empty {
+  color: var(--stone);
+  font-size: 14px;
+  margin: 0;
+  padding: 18px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
