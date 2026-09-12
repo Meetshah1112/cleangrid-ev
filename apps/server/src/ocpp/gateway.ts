@@ -115,7 +115,32 @@ export class OcppGateway {
     return this.call<ResetResponse>(chargerId, 'Reset', { type });
   }
 
+  /**
+   * Hand every charger back before letting go of it.
+   *
+   * A charging profile lives on the charger, not here. Closing the socket without clearing it
+   * leaves the safety limit in force with nothing left to lift it: at a site whose share works out
+   * near five kilowatts, an overnight van still makes its dispatch and a shopper on a ninety-minute
+   * stop does not, and nobody finds out, because the thing that would have reported it is the thing
+   * that stopped. A charger with no controller should fall back to charging, not to a third of the
+   * rate it was sold as.
+   *
+   * This covers a shutdown we get to run. A process that is killed outright still leaves the
+   * profile behind, which is a real gap and needs a watchdog on the charger side to close: OCPP
+   * gives us no way to say "forget this if you stop hearing from me".
+   */
   async close(): Promise<void> {
+    await Promise.allSettled(
+      [...this.connections.keys()].map(async (chargerId) => {
+        try {
+          await this.clearChargingProfile(chargerId, { id: SAFETY_PROFILE_ID });
+        } catch (error) {
+          // Best effort: a charger that has already gone is one we cannot hand anything back to.
+          this.deps.logger.warn({ err: error, chargerId }, 'could not release the safety profile');
+        }
+      }),
+    );
+
     for (const connection of this.connections.values()) {
       connection.rpc.close('server shutting down');
       connection.socket.close(1001, 'server shutting down');

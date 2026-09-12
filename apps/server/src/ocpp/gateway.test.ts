@@ -8,7 +8,7 @@ import { nullLogger } from '../logger';
 import { createMemoryRepositories } from '../repo/memory';
 import type { Repositories } from '../repo/types';
 import { SessionService } from '../sessions/service';
-import { OcppGateway } from './gateway';
+import { OcppGateway, SAFETY_PROFILE_ID } from './gateway';
 
 /**
  * End to end over a real WebSocket: a charge point connects, authorises a card, opens a
@@ -100,6 +100,7 @@ async function connectChargePoint(port: number, identity = 'CP-01'): Promise<Cha
     (action, payload) => {
       received.push({ action, payload });
       if (action === 'SetChargingProfile') return { status: 'Accepted' };
+      if (action === 'ClearChargingProfile') return { status: 'Accepted' };
       return {};
     },
     { callTimeoutMs: 2_000 },
@@ -120,6 +121,48 @@ async function connectChargePoint(port: number, identity = 'CP-01'): Promise<Cha
     },
   };
 }
+
+describe('shutting down', () => {
+  let harness: Harness;
+
+  beforeEach(async () => {
+    harness = await startHarness();
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve) => harness.server.close(() => resolve()));
+  });
+
+  it('releases the safety profile before letting the charger go', async () => {
+    // A charging profile lives on the charger. Closing the socket without clearing it leaves the
+    // limit in force with nothing left to lift it, and the charger stays throttled indefinitely --
+    // silently, because the thing that would report it is the thing that stopped.
+    const client = await connectChargePoint(harness.port);
+    await client.rpc.call('BootNotification', { chargePointVendor: 'v', chargePointModel: 'm' });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(client.received.some((call) => call.action === 'SetChargingProfile')).toBe(true);
+
+    await harness.gateway.close();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    const cleared = client.received.filter((call) => call.action === 'ClearChargingProfile');
+    expect(cleared.length).toBe(1);
+    expect(cleared[0]?.payload).toMatchObject({ id: SAFETY_PROFILE_ID });
+    await client.close();
+  });
+
+  it('closes cleanly when a charger has already gone, rather than waiting on it', async () => {
+    const client = await connectChargePoint(harness.port);
+    await client.rpc.call('BootNotification', { chargePointVendor: 'v', chargePointModel: 'm' });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // The charger drops off first, so there is nothing to hand anything back to.
+    client.socket.terminate();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    await expect(harness.gateway.close()).resolves.toBeUndefined();
+  });
+});
 
 describe('OcppGateway', () => {
   let harness: Harness;
