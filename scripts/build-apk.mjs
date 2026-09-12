@@ -72,7 +72,8 @@ const env = {
 console.log(`building against ${api}`);
 run('npx', ['expo', 'prebuild', '--platform', 'android'], { cwd: driver, env });
 
-const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+// The wrapper lives in the working directory, which is not on PATH on Windows.
+const gradlew = join(android, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
 run(gradlew, ['assembleRelease', '--no-daemon', '--max-workers=2', '-PreactNativeArchitectures=arm64-v8a'], {
   cwd: android,
   env,
