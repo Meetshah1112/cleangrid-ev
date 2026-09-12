@@ -37,7 +37,16 @@ export function useLiveSite(siteId: string | null): LiveSite {
   const [flexEvents, setFlexEvents] = useState<FlexEvent[]>([]);
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   const [demand, setDemand] = useState<Demand | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  /**
+   * Zero until the browser has mounted, and only then the real clock.
+   *
+   * Next renders these pages on the server first. Reading the clock during that render gives one
+   * time on the server and a different one in the browser a moment later, so every countdown and
+   * every "in force until" disagreed with the HTML it was hydrating and React threw the whole tree
+   * away and rebuilt it. Starting from a value both sides can agree on costs one frame and fixes
+   * it; callers treat 0 as "not known yet" rather than as the epoch.
+   */
+  const [nowMs, setNowMs] = useState(0);
   const [timeScale, setTimeScale] = useState(1);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +86,11 @@ export function useLiveSite(siteId: string | null): LiveSite {
   }, [siteId]);
 
   useEffect(() => {
+    setNowMs(Date.now());
+    tickRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
     void refresh();
     const poll = setInterval(() => void refresh(), POLL_MS);
     return () => clearInterval(poll);
@@ -87,7 +101,7 @@ export function useLiveSite(siteId: string | null): LiveSite {
     const timer = setInterval(() => {
       const elapsed = Date.now() - tickRef.current;
       tickRef.current = Date.now();
-      setNowMs((current) => current + elapsed * timeScale);
+      setNowMs((current) => (current === 0 ? current : current + elapsed * timeScale));
     }, 1_000);
     return () => clearInterval(timer);
   }, [timeScale]);

@@ -79,6 +79,8 @@ function GridBody({
   }, [loadNetwork]);
 
   const here = network.find((entry) => entry.siteId === siteId) ?? null;
+  // Before the browser has a clock, every time on this page would be measured from the epoch.
+  const clockKnown = nowMs > 0;
   const live = flexEvents.find((event) => event.status === 'accepted' && event.endsMs > nowMs) ?? null;
   // Measured against what the site is drawing, so the percentage means what an operator expects.
   const drawNowKw = here?.currentDrawKw ?? 0;
@@ -211,7 +213,11 @@ function GridBody({
             {live ? 'the optimiser is already holding the site below the cap' : 'what would happen if this request arrived'}
           </span>
         </div>
-        <RampPlan ramp={ramp} timezone={timezone} live={live !== null} />
+        {clockKnown ? (
+          <RampPlan ramp={ramp} timezone={timezone} live={live !== null} />
+        ) : (
+          <p className="empty">Reading the site clock.</p>
+        )}
       </section>
 
       <section className="card" style={{ marginTop: 14 }}>
