@@ -2,23 +2,31 @@
 -- Drivers see their own charging and nothing else. Operators see their site.
 -- Grid operators see site-level aggregates and may ask for flexibility, never personal data.
 -- The backend uses the service role and bypasses all of this.
+--
+-- A profile's primary key is its readable id ("drv-amara"), so nothing here compares against
+-- auth.uid() directly: every check goes through current_profile_id(), which resolves the signed-in
+-- auth user to their profile row. A seeded profile with no auth_user_id simply matches nobody.
 
--- Reading the caller's own profile inside a policy would recurse, so these are security definer.
+create or replace function public.current_profile_id() returns text
+  language sql stable security definer set search_path = public as $$
+  select id from profiles where auth_user_id = auth.uid();
+$$;
+
 create or replace function public.current_role_of_caller() returns user_role
   language sql stable security definer set search_path = public as $$
-  select role from profiles where id = auth.uid();
+  select role from profiles where auth_user_id = auth.uid();
 $$;
 
-create or replace function public.current_site_of_caller() returns uuid
+create or replace function public.current_site_of_caller() returns text
   language sql stable security definer set search_path = public as $$
-  select site_id from profiles where id = auth.uid();
+  select site_id from profiles where auth_user_id = auth.uid();
 $$;
 
-create or replace function public.is_operator_of(target_site uuid) returns boolean
+create or replace function public.is_operator_of(target_site text) returns boolean
   language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from profiles
-    where id = auth.uid() and role = 'operator' and site_id = target_site
+    where auth_user_id = auth.uid() and role = 'operator' and site_id = target_site
   );
 $$;
 
@@ -51,19 +59,19 @@ create policy grid_signals_read on grid_signals for select to authenticated usin
 
 -- Profiles: your own row, plus the drivers at a site you operate.
 create policy profiles_read_self on profiles for select to authenticated
-  using (id = auth.uid() or public.is_operator_of(site_id));
+  using (id = public.current_profile_id() or public.is_operator_of(site_id));
 create policy profiles_update_self on profiles for update to authenticated
-  using (id = auth.uid()) with check (id = auth.uid());
+  using (id = public.current_profile_id()) with check (id = public.current_profile_id());
 
 create policy vehicles_owner on vehicles for all to authenticated
-  using (driver_id = auth.uid()) with check (driver_id = auth.uid());
+  using (driver_id = public.current_profile_id()) with check (driver_id = public.current_profile_id());
 
 -- Sessions: a driver's own, or any at a site you operate.
 create policy sessions_read on sessions for select to authenticated
-  using (driver_id = auth.uid() or public.is_operator_of(site_id));
+  using (driver_id = public.current_profile_id() or public.is_operator_of(site_id));
 create policy sessions_update on sessions for update to authenticated
-  using (driver_id = auth.uid() or public.is_operator_of(site_id))
-  with check (driver_id = auth.uid() or public.is_operator_of(site_id));
+  using (driver_id = public.current_profile_id() or public.is_operator_of(site_id))
+  with check (driver_id = public.current_profile_id() or public.is_operator_of(site_id));
 
 -- RLS controls which rows; column grants control which fields a driver may change.
 -- Everything else (energy delivered, meter registers, status) is the server's to write.
@@ -75,7 +83,7 @@ create policy meter_readings_read on meter_readings for select to authenticated
     exists (
       select 1 from sessions s
       where s.id = meter_readings.session_id
-        and (s.driver_id = auth.uid() or public.is_operator_of(s.site_id))
+        and (s.driver_id = public.current_profile_id() or public.is_operator_of(s.site_id))
     )
   );
 
@@ -84,7 +92,7 @@ create policy session_reports_read on session_reports for select to authenticate
     exists (
       select 1 from sessions s
       where s.id = session_reports.session_id
-        and (s.driver_id = auth.uid() or public.is_operator_of(s.site_id))
+        and (s.driver_id = public.current_profile_id() or public.is_operator_of(s.site_id))
     )
   );
 
@@ -98,6 +106,6 @@ create policy dispatch_log_read on dispatch_log for select to authenticated usin
 create policy flex_read on flex_events for select to authenticated
   using (public.is_operator_of(site_id) or public.current_role_of_caller() = 'grid_operator');
 create policy flex_insert on flex_events for insert to authenticated
-  with check (public.current_role_of_caller() = 'grid_operator' and requested_by = auth.uid());
+  with check (public.current_role_of_caller() = 'grid_operator' and requested_by = public.current_profile_id());
 create policy flex_respond on flex_events for update to authenticated
   using (public.is_operator_of(site_id)) with check (public.is_operator_of(site_id));

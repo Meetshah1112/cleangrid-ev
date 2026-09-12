@@ -15,9 +15,19 @@ import { DispatchService } from './optimiser/dispatcher';
 import { OptimiserLoop } from './optimiser/loop';
 import { createScheduler } from './optimiser/scheduler';
 import { createMemoryRepositories } from './repo/memory';
+import { createSupabaseRepositories } from './repo/supabase';
 import { ReportService } from './reports/service';
 import { loadScenarioFiles, seedFromScenario } from './seed/scenario';
 import { SessionService } from './sessions/service';
+
+const EMPTY_MIRROR = {
+  queued: 0,
+  written: 0,
+  failed: 0,
+  dropped: 0,
+  degraded: false,
+  lastError: null,
+} as const;
 
 /**
  * One process holds the REST API, the OCPP gateway and an optimiser loop per site, because the
@@ -38,9 +48,23 @@ async function main(): Promise<void> {
     timezone: first.site.timezone,
   });
 
-  const repos = createMemoryRepositories();
+  // On Supabase the repositories still answer from memory and stream every write to Postgres; see
+  // repo/supabase/index.ts for why a control loop does not wait on a network round trip.
+  const store =
+    config.REPO === 'supabase'
+      ? createSupabaseRepositories({
+          url: config.SUPABASE_URL as string,
+          serviceKey: config.SUPABASE_SERVICE_KEY as string,
+          logger,
+        })
+      : null;
+  const repos = store?.repos ?? createMemoryRepositories();
+  if (store) logger.info(await store.hydrate(), 'hydrated from supabase');
+
   const bus = new EventBus(logger);
   for (const scenario of scenarios) await seedFromScenario(repos, scenario, clock, logger);
+  // Get the topology into Postgres before any session can reference it.
+  if (store) await store.flush();
 
   const sessions = new SessionService({ repos, bus, clock, logger });
   const gateway = new OcppGateway({ repos, bus, clock, logger, sessions, safetyProfiles: config.OPTIMISER === 'on' });
@@ -104,6 +128,7 @@ async function main(): Promise<void> {
     reports,
     runtimes,
     defaultSiteId: first.site.id,
+    storage: { kind: config.REPO, stats: () => store?.stats() ?? EMPTY_MIRROR },
   };
   const app = await buildApp(ctx);
   const channel = new DashboardChannel({ bus, clock, repos, logger });
@@ -156,6 +181,11 @@ async function main(): Promise<void> {
     await channel.close();
     await gateway.close();
     await app.close();
+    // Drain what is still queued, so a clean stop leaves Postgres complete.
+    if (store) {
+      await store.close();
+      logger.info(store.stats(), 'supabase mirror drained');
+    }
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

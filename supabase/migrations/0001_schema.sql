@@ -1,6 +1,10 @@
 -- CleanGrid EV schema.
 -- One site, its chargers, the drivers who use them, and the plans that decide who charges when.
 -- Times are timestamptz; the application works in epoch milliseconds and converts at the edge.
+--
+-- Identifiers are text, not uuid. A charger's id IS its OCPP identity ("CP-01"), a site's id is
+-- the one its scenario file declares, and the server generates uuid strings for rows it creates.
+-- Text holds both without a translation layer between the wire and the database.
 
 create extension if not exists "pgcrypto";
 
@@ -26,9 +30,11 @@ end;
 $$;
 
 create table sites (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   name text not null,
   timezone text not null default 'Europe/London',
+  -- ISO 3166-1 alpha-2; decides which grid data sources apply to this site.
+  country char(2) not null default 'GB',
   lat double precision not null,
   lng double precision not null,
   -- Distribution region letter used to pick a regional tariff.
@@ -44,10 +50,13 @@ create table sites (
 );
 
 create table profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id text primary key,
+  -- Set when this person signs in through Supabase auth. Null for seeded demo drivers, which is
+  -- why RLS matches on this column rather than on the primary key.
+  auth_user_id uuid unique references auth.users (id) on delete set null,
   role user_role not null default 'driver',
   display_name text not null,
-  site_id uuid references sites (id) on delete set null,
+  site_id text references sites (id) on delete set null,
   -- RFID card or app token presented to the charger; links OCPP transactions to this person.
   id_tag text unique,
   default_mode charging_mode not null default 'balanced',
@@ -59,8 +68,8 @@ create table profiles (
 create index profiles_site_idx on profiles (site_id) where site_id is not null;
 
 create table vehicles (
-  id uuid primary key default gen_random_uuid(),
-  driver_id uuid not null references profiles (id) on delete cascade,
+  id text primary key,
+  driver_id text not null references profiles (id) on delete cascade,
   label text not null,
   battery_kwh numeric(6, 2) not null check (battery_kwh > 0),
   max_charge_kw numeric(6, 2) not null check (max_charge_kw > 0),
@@ -69,8 +78,8 @@ create table vehicles (
 create index vehicles_driver_idx on vehicles (driver_id);
 
 create table chargers (
-  id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites (id) on delete cascade,
+  id text primary key,
+  site_id text not null references sites (id) on delete cascade,
   -- Charge point identity: the last path segment of its OCPP WebSocket URL.
   ocpp_identity text not null unique,
   label text not null,
@@ -88,23 +97,13 @@ create table chargers (
 );
 create index chargers_site_idx on chargers (site_id);
 
-create table connectors (
-  charger_id uuid not null references chargers (id) on delete cascade,
-  connector_id int not null check (connector_id >= 0),
-  status connector_status not null default 'Unavailable',
-  error_code text not null default 'NoError',
-  current_session_id uuid,
-  updated_at timestamptz not null default now(),
-  primary key (charger_id, connector_id)
-);
-
 create table sessions (
-  id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites (id) on delete cascade,
-  charger_id uuid not null references chargers (id) on delete cascade,
+  id text primary key,
+  site_id text not null references sites (id) on delete cascade,
+  charger_id text not null references chargers (id) on delete cascade,
   connector_id int not null default 1,
-  driver_id uuid references profiles (id) on delete set null,
-  vehicle_id uuid references vehicles (id) on delete set null,
+  driver_id text references profiles (id) on delete set null,
+  vehicle_id text references vehicles (id) on delete set null,
   id_tag text not null,
   -- OCPP transaction id, assigned when the charger reports StartTransaction.
   transaction_id bigint unique,
@@ -135,22 +134,30 @@ create index sessions_driver_idx on sessions (driver_id, plugged_in_at desc);
 create index sessions_charger_idx on sessions (charger_id, plugged_in_at desc);
 create index sessions_active_idx on sessions (site_id) where status = 'active';
 
-alter table connectors
-  add constraint connectors_session_fk foreign key (current_session_id) references sessions (id) on delete set null;
+create table connectors (
+  charger_id text not null references chargers (id) on delete cascade,
+  connector_id int not null check (connector_id >= 0),
+  status connector_status not null default 'Unavailable',
+  error_code text not null default 'NoError',
+  current_session_id text references sessions (id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (charger_id, connector_id)
+);
 
+-- Keyed by session and instant rather than a surrogate id: that is the natural key, a charger
+-- cannot report the same register twice for one moment, and it keeps the table free of a sequence.
 create table meter_readings (
-  id bigserial primary key,
-  session_id uuid not null references sessions (id) on delete cascade,
+  session_id text not null references sessions (id) on delete cascade,
   recorded_at timestamptz not null,
   -- Energy.Active.Import.Register, monotonic within a transaction.
   energy_wh bigint not null check (energy_wh >= 0),
   power_w int not null default 0,
-  soc numeric(4, 3) check (soc between 0 and 1)
+  soc numeric(4, 3) check (soc between 0 and 1),
+  primary key (session_id, recorded_at)
 );
-create index meter_readings_session_idx on meter_readings (session_id, recorded_at);
 
 create table grid_signals (
-  site_id uuid not null references sites (id) on delete cascade,
+  site_id text not null references sites (id) on delete cascade,
   kind signal_kind not null,
   slot_start timestamptz not null,
   value numeric(10, 4) not null,
@@ -161,12 +168,14 @@ create table grid_signals (
 create index grid_signals_lookup_idx on grid_signals (site_id, kind, slot_start desc);
 
 create table plans (
-  id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites (id) on delete cascade,
+  id text primary key,
+  site_id text not null references sites (id) on delete cascade,
   solved_at timestamptz not null default now(),
   -- What prompted this solve: a plug-in, a deadline change, a flex request, the interval.
   trigger text not null,
   horizon_start timestamptz not null,
+  -- "Now" as the solver saw it: horizon_start is snapped back to a slot boundary, this is not.
+  horizon_now timestamptz not null,
   slot_minutes int not null default 15,
   slots int not null default 96,
   solver solver_name not null,
@@ -187,8 +196,8 @@ create table plans (
 create index plans_site_idx on plans (site_id, solved_at desc);
 
 create table plan_schedules (
-  plan_id uuid not null references plans (id) on delete cascade,
-  session_id uuid not null references sessions (id) on delete cascade,
+  plan_id text not null references plans (id) on delete cascade,
+  session_id text not null references sessions (id) on delete cascade,
   -- Power for each slot of the plan's grid, kW.
   power_kw numeric(6, 2)[] not null,
   primary key (plan_id, session_id)
@@ -196,12 +205,12 @@ create table plan_schedules (
 create index plan_schedules_session_idx on plan_schedules (session_id);
 
 create table dispatch_log (
-  id bigserial primary key,
-  plan_id uuid references plans (id) on delete set null,
-  site_id uuid not null references sites (id) on delete cascade,
-  charger_id uuid not null references chargers (id) on delete cascade,
+  id text primary key,
+  plan_id text references plans (id) on delete set null,
+  site_id text not null references sites (id) on delete cascade,
+  charger_id text not null references chargers (id) on delete cascade,
   connector_id int not null default 1,
-  session_id uuid references sessions (id) on delete set null,
+  session_id text references sessions (id) on delete set null,
   sent_at timestamptz not null default now(),
   limit_w int not null,
   profile jsonb not null,
@@ -212,9 +221,9 @@ create index dispatch_log_charger_idx on dispatch_log (charger_id, sent_at desc)
 create index dispatch_log_site_idx on dispatch_log (site_id, sent_at desc);
 
 create table flex_events (
-  id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites (id) on delete cascade,
-  requested_by uuid references profiles (id) on delete set null,
+  id text primary key,
+  site_id text not null references sites (id) on delete cascade,
+  requested_by text references profiles (id) on delete set null,
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   cap_kw numeric(8, 2) not null check (cap_kw >= 0),
@@ -227,7 +236,7 @@ create table flex_events (
 create index flex_events_site_idx on flex_events (site_id, status);
 
 create table session_reports (
-  session_id uuid primary key references sessions (id) on delete cascade,
+  session_id text primary key references sessions (id) on delete cascade,
   energy_kwh numeric(7, 3) not null,
   cost numeric(9, 4) not null,
   co2_kg numeric(9, 4) not null,
@@ -252,10 +261,18 @@ create trigger profiles_touch before update on profiles for each row execute fun
 create trigger chargers_touch before update on chargers for each row execute function public.touch_updated_at();
 create trigger sessions_touch before update on sessions for each row execute function public.touch_updated_at();
 
--- The dashboard follows these tables over Supabase realtime.
-alter publication supabase_realtime add table sessions;
-alter publication supabase_realtime add table chargers;
-alter publication supabase_realtime add table connectors;
-alter publication supabase_realtime add table plans;
-alter publication supabase_realtime add table session_reports;
-alter publication supabase_realtime add table flex_events;
+-- The dashboard follows these tables over Supabase realtime. Adding a table twice is an error,
+-- so each is guarded: re-running this file must not fail on a project that already has them.
+do $$
+declare t text;
+begin
+  foreach t in array array['sessions', 'chargers', 'connectors', 'plans', 'session_reports', 'flex_events'] loop
+    begin
+      execute format('alter publication supabase_realtime add table %I', t);
+    exception
+      when duplicate_object then null;
+      when undefined_object then null;
+    end;
+  end loop;
+end;
+$$;

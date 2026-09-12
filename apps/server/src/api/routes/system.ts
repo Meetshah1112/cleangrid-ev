@@ -26,6 +26,7 @@ export async function registerSystemRoutes(app: FastifyInstance, ctx: ApiContext
       activeSessions: perSite.reduce((total, site) => total + site.activeSessions, 0),
       lastPlanMs: perSite.reduce<number | null>((latest, site) => Math.max(latest ?? 0, site.lastPlanMs ?? 0) || null, null),
       scheduler: perSite.find((site) => site.solver !== null)?.solver ?? null,
+      storage: ctx.storage ? { kind: ctx.storage.kind, ...ctx.storage.stats() } : { kind: 'memory' },
       sites: perSite,
     });
   });

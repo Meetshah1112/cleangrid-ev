@@ -31,6 +31,13 @@ export interface ApiContext {
   readonly runtimes: ReadonlyMap<string, SiteRuntime>;
   /** The site shown when a client has not chosen one. */
   readonly defaultSiteId: string;
+  /** Present only when running on Supabase: how far behind the write-behind mirror is. */
+  readonly storage?: StorageStatus;
+}
+
+export interface StorageStatus {
+  readonly kind: 'memory' | 'supabase';
+  stats(): { queued: number; written: number; failed: number; dropped: number; degraded: boolean; lastError: string | null };
 }
 
 export function runtimeFor(ctx: ApiContext, siteId: string): SiteRuntime {
