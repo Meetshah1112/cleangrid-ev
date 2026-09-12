@@ -1378,3 +1378,51 @@ table td,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Result of a re-plan, and why the cadence has changed. Sits under the card head where it is read
+   rather than hunted for, and indents to the chart it is talking about. */
+.replan-outcome {
+  margin: 0 0 10px;
+  padding: 0 2px;
+  line-height: 1.45;
+  max-width: 70ch;
+}
+
+/* Operator overrides, sitting inside a dense table. They have to be reachable without becoming the
+   loudest thing in a row whose job is still to be read at a glance. */
+.row-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.row-select:hover {
+  border-color: var(--green);
+}
+
+.row-select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+.row-select:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.btn.tiny {
+  font-size: 11px;
+  padding: 3px 7px;
+  min-height: 24px;
+  font-variant-numeric: tabular-nums;
+}

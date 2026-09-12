@@ -56,7 +56,23 @@ export const api = {
   dispatchLog: (siteId: string, limit = 12) => request<Dispatch[]>(`/sites/${siteId}/dispatch-log?limit=${limit}`),
   impact: (siteId: string) => request<Impact>(`/sites/${siteId}/reports`),
   demand: (siteId: string, hours = 24) => request<Demand>(`/sites/${siteId}/demand?hours=${hours}`),
-  replan: (siteId: string) => request<{ planId?: string; status?: string }>(`/sites/${siteId}/replan`, { method: 'POST' }),
+  /**
+   * `queued` comes back instead of a plan when the optimiser is switched off at this site, which
+   * is the baseline mode: it watches and measures but never intervenes. Saying "re-planned" then
+   * would be a lie, so the caller has to be able to tell the two apart.
+   */
+  /**
+   * An operator override. The server re-checks that the change can still be delivered in time and
+   * refuses it with `deadline_unreachable` if it cannot, rather than accepting a promise it would
+   * then break, so the caller must show what comes back instead of assuming it took.
+   */
+  patchSession: (sessionId: string, body: { mode?: string; deadlineAt?: string; energyKwh?: number }) =>
+    request<Session>(`/sessions/${sessionId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  replan: (siteId: string) =>
+    request<{ planId?: string; status?: string; solver?: string; queued?: boolean }>(`/sites/${siteId}/replan`, {
+      method: 'POST',
+    }),
   respondToFlex: (siteId: string, eventId: string, accept: boolean) =>
     request<FlexEvent>(`/sites/${siteId}/flex-events/${eventId}/respond`, {
       method: 'POST',

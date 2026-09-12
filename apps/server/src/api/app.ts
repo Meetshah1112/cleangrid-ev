@@ -16,7 +16,20 @@ export const ok = <T>(data: T, meta?: Record<string, unknown>): { ok: true; data
 
 export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
-  await app.register(cors, { origin: true });
+  /**
+   * Methods are named rather than left to a default.
+   *
+   * The default answered a PATCH preflight with "GET,HEAD,POST", so every PATCH from a browser was
+   * refused before it was sent -- which is why changing a session from the console had never been
+   * possible and the console said to use the API instead. The server had the route the whole time.
+   * A list that has to be edited when a verb is added is a smaller cost than one that silently
+   * disagrees with the routes behind it.
+   */
+  await app.register(cors, {
+    origin: true,
+    methods: ['GET', 'HEAD', 'OPTIONS', 'POST', 'PATCH'],
+    allowedHeaders: ['content-type', 'authorization', 'x-dev-role', 'x-dev-user'],
+  });
 
   // Several endpoints take no body. A client that still sends a JSON content-type should get the
   // action, not a parser error.

@@ -149,7 +149,12 @@ export default function OverviewPage() {
                 <h2>Sessions and exceptions</h2>
                 <span className="note">deadline order</span>
               </div>
-              <SessionsTable sessions={live.sessions} nowMs={live.nowMs} timezone={tz} />
+              <SessionsTable
+                sessions={live.sessions}
+                nowMs={live.nowMs}
+                timezone={tz}
+                onChanged={() => void live.refresh()}
+              />
             </section>
           </>
         );

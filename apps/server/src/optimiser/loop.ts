@@ -30,6 +30,12 @@ export interface OptimiserLoopDeps {
   readonly siteId: string;
 }
 
+/**
+ * How often to re-solve while a driver is short. A simulated minute: often enough that anything
+ * freeing up is used almost at once, and far enough apart that a site cannot spend itself solving.
+ */
+const AT_RISK_INTERVAL_MS = MS_PER_MINUTE;
+
 export class OptimiserLoop {
   private timer: ReturnType<typeof setInterval> | null = null;
   private debounce: ReturnType<typeof setTimeout> | null = null;
@@ -38,8 +44,30 @@ export class OptimiserLoop {
   private queuedTrigger: string | null = null;
   private lastSolveMs = Number.NEGATIVE_INFINITY;
   private lastPlan: PlanRecord | null = null;
+  /** How many drivers the last plan could not get to their deadline. */
+  private atRiskCount = 0;
 
   constructor(private readonly deps: OptimiserLoopDeps) {}
+
+  /** Drivers the last plan could not satisfy. Zero is the normal state and the goal. */
+  get driversAtRisk(): number {
+    return this.atRiskCount;
+  }
+
+  /**
+   * How long to wait before solving again with nothing else prompting it.
+   *
+   * The ordinary cadence assumes the plan in force is still the right one, which is a fair
+   * assumption while every deadline is being met. It stops being fair the moment one is not: a
+   * driver at risk is precisely the case where the answer is expected to change, because the thing
+   * that would rescue them -- a car finishing early and freeing its share, a flexibility window
+   * ending, a forecast revision -- arrives between solves and is worth nothing if it is not picked
+   * up until the next one. So while anyone is short, the loop looks again far more often.
+   */
+  private intervalMs(): number {
+    const ordinary = this.deps.config.RESOLVE_INTERVAL_MIN * MS_PER_MINUTE;
+    return this.atRiskCount > 0 ? Math.min(ordinary, AT_RISK_INTERVAL_MS) : ordinary;
+  }
 
   get latestPlan(): PlanRecord | null {
     return this.lastPlan;
@@ -63,8 +91,8 @@ export class OptimiserLoop {
     ];
     // Checked against the simulated clock, so a sped-up demo re-solves at the same cadence.
     this.timer = setInterval(() => {
-      if (this.deps.clock.now() - this.lastSolveMs >= this.deps.config.RESOLVE_INTERVAL_MIN * MS_PER_MINUTE) {
-        this.request('interval');
+      if (this.deps.clock.now() - this.lastSolveMs >= this.intervalMs()) {
+        this.request(this.atRiskCount > 0 ? 'deadline_risk' : 'interval');
       }
     }, 1_000);
     this.timer.unref?.();
@@ -173,7 +201,20 @@ export class OptimiserLoop {
     this.lastPlan = plan;
     this.deps.bus.emit('plan.solved', { plan });
 
-    await this.flagDeadlineRisk(sessions.map((session) => session.id), result.shortfalls, built.overdue);
+    const atRisk = await this.flagDeadlineRisk(
+      sessions.map((session) => session.id),
+      result.shortfalls,
+      built.overdue,
+    );
+    // Recorded before dispatch, so the next tick is already on the shorter cadence if anyone is
+    // short -- including on the solve that first discovers it.
+    const wasAtRisk = this.atRiskCount;
+    this.atRiskCount = atRisk;
+    if (atRisk > 0 && wasAtRisk === 0) {
+      logger.warn({ atRisk, everyMs: AT_RISK_INTERVAL_MS }, 'drivers at risk; re-planning more often until they are not');
+    } else if (atRisk === 0 && wasAtRisk > 0) {
+      logger.info('every deadline is reachable again; back to the ordinary cadence');
+    }
     const sent = await this.deps.dispatcher.apply(plan, grid, sessions);
 
     logger.info(
@@ -199,14 +240,18 @@ export class OptimiserLoop {
     return this.deps.demand.peakKw;
   }
 
+  /** Marks each session and returns how many are short, which sets the cadence from here. */
   private async flagDeadlineRisk(
     sessionIds: readonly string[],
     shortfalls: readonly { sessionId: string }[],
     overdue: readonly string[],
-  ): Promise<void> {
+  ): Promise<number> {
     const atRisk = new Set([...shortfalls.map((item) => item.sessionId), ...overdue]);
     for (const sessionId of sessionIds) {
       await this.deps.sessions.setDeadlineRisk(sessionId, atRisk.has(sessionId));
     }
+    // Only sessions still in this plan count. One that has since unplugged is no longer at risk of
+    // anything, and leaving it in the tally would hold the loop at the faster cadence forever.
+    return sessionIds.filter((sessionId) => atRisk.has(sessionId)).length;
   }
 }

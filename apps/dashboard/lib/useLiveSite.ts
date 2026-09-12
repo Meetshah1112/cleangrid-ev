@@ -22,7 +22,8 @@ export interface LiveSite {
   timeScale: number;
   connected: boolean;
   error: string | null;
-  refresh: () => void;
+  /** Resolves once the new data is in state, so a caller can keep a button busy until then. */
+  refresh: () => Promise<void>;
 }
 
 const POLL_MS = 5_000;
@@ -42,9 +43,9 @@ export function useLiveSite(siteId: string | null): LiveSite {
   const [error, setError] = useState<string | null>(null);
   const tickRef = useRef<number>(Date.now());
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async (): Promise<void> => {
     if (!siteId) return;
-    void (async () => {
+    await (async () => {
       try {
         const [nextOverview, nextSessions, nextChargers, nextFlex, nextDispatches, nextDemand] = await Promise.all([
           api.overview(siteId),
@@ -76,8 +77,8 @@ export function useLiveSite(siteId: string | null): LiveSite {
   }, [siteId]);
 
   useEffect(() => {
-    refresh();
-    const poll = setInterval(refresh, POLL_MS);
+    void refresh();
+    const poll = setInterval(() => void refresh(), POLL_MS);
     return () => clearInterval(poll);
   }, [refresh]);
 
