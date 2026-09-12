@@ -14,17 +14,20 @@ cannot start until this one is done.
 | T7 | Dispatcher: plan to SetChargingProfile, hysteresis, minimum-power rounding, dispatch log | T8 | done |
 | T8 | Optimiser loop, in-memory repositories, synthetic forecast, seeding, `npm run demo` | T9–T13 | done (milestone 1) |
 | T9 | LP scheduler on HiGHS, resilient fallback, same test contract as greedy | – | done |
-| T10 | Forecast service: provider interface, caching, historical signals, persistence | T11 | done (synthetic provider; live sources are the next step) |
+| T10 | Forecast service: provider interface, caching, historical signals, persistence | T11 | done (live: National Grid ESO, Octopus Agile, Open-Meteo everywhere, Electricity Maps behind a token) |
 | T11 | Avoided emissions: meter integration, dumb-charger baseline, Green Score, site impact | T12 | done |
 | T12 | REST and WebSocket API, dev and JWT auth, flex events, Supabase schema and RLS | T13 | done |
 | T13 | Operator dashboard: live KPIs, plan chart, bays, sessions, flex, impact page | – | done (milestone 2) |
 | T14 | Seed realism, full test run, drift review, documentation | – | in progress |
-| T15 | Driver app (Expo) against the same API | – | stretch |
+| T16 | Supabase repository: memory reads, mirrored writes, hydrate on boot | – | done |
+| T17 | The Gujarat network: Gandhinagar, Ahmedabad, Vadodara and Surat, with a Gujarat grid profile and a location-aware weather model | – | done |
+| T15 | Driver app (Expo) against the same API | – | done (React Native 0.86, built to an APK; offline snapshot when no server answers) |
 
 ## Milestones
 
 - **Milestone 1**: a simulated day runs end to end in the terminal. Reached at T8.
 - **Milestone 2**: the dashboard shows that day as it happens. Reached at T13.
+- **Milestone 3**: five sites on two grids, each with its own live forecast, on a phone. Reached at T17.
 
 ## Who does what
 
