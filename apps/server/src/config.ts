@@ -1,4 +1,4 @@
-import { SimClock, SystemClock, zonedTimeToUtc, type Clock } from '@cleangrid/shared';
+import { DEFAULT_SCENARIOS, SimClock, SystemClock, zonedTimeToUtc, type Clock } from '@cleangrid/shared';
 import { z } from 'zod';
 
 /** All runtime configuration in one place, validated once at startup. */
@@ -16,7 +16,7 @@ export const configSchema = z.object({
   LOG_PRETTY: bool(true),
   DEV_AUTH: bool(true),
   REPO: z.enum(['memory', 'supabase']).default('memory'),
-  SCENARIO: z.string().default('./scenarios/day-one.json'),
+  SCENARIO: z.string().default(DEFAULT_SCENARIOS),
   /** Simulated clock start: an ISO instant, "scenario" to use the scenario's own start, or unset for real time. */
   SIM_START: z.string().default('scenario'),
   SIM_TIME_SCALE: z.coerce.number().positive().max(10_000).default(1),
@@ -46,6 +46,10 @@ export const configSchema = z.object({
    * contract would. Off means an operator has to accept each request by hand.
    */
   AUTO_ACCEPT_FLEX: bool(true),
+  /** Unlocks measured carbon intensity outside Great Britain; without it those grids are modelled. */
+  ELECTRICITY_MAPS_TOKEN: z.string().optional(),
+  /** The zone that token is granted for, if it is not the one the site's grid would ask for. */
+  ELECTRICITY_MAPS_ZONE: z.string().optional(),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),

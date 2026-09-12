@@ -23,6 +23,23 @@ export interface GridProfile {
   readonly price: Curve;
   /** Share of generation from renewables, 0..1. */
   readonly renewable: Curve;
+  /**
+   * How this grid's variable renewable output splits between sun and wind, by installed capacity.
+   * Weather means different things to different grids: an overcast morning barely moves a
+   * wind-led system and takes most of the output off a solar-led one. The two add to 1.
+   */
+  readonly mix: { readonly solar: number; readonly wind: number };
+  /**
+   * The share of generation from renewables that run whatever the sky is doing: hydro, biomass,
+   * waste. Weather scales the rest and leaves this alone, which matters most at night — a windless
+   * midnight is not a grid with no renewables on it, it is a grid running on its firm ones.
+   */
+  readonly firmShare: number;
+  /**
+   * The Electricity Maps zone covering this grid, where one exists. Their free tier is granted per
+   * zone rather than by coordinate, so a site has to ask for its zone by name to be answered.
+   */
+  readonly mapsZone?: string;
 }
 
 /** Great Britain: wind-heavy overnight, solar at midday, gas through the evening peak. */
@@ -58,6 +75,10 @@ const GB: GridProfile = {
     [18, 0.18],
     [21, 0.36],
   ],
+  mix: { solar: 0.25, wind: 0.75 },
+  // Hydro and biomass, a small and steady slice of the British system.
+  firmShare: 0.06,
+  mapsZone: 'GB',
 };
 
 /**
@@ -96,13 +117,98 @@ const IN: GridProfile = {
     [18, 0.11],
     [21, 0.15],
   ],
+  mix: { solar: 0.62, wind: 0.38 },
+  // Karnataka carries real hydro capacity on the Sharavathi and Kali, so its floor is higher.
+  firmShare: 0.1,
+  mapsZone: 'IN-SO',
 };
 
-const PROFILES: Record<string, GridProfile> = { GB, IN };
 
-/** The profile for a country, falling back to Great Britain for anywhere not modelled yet. */
-export function gridProfileFor(country: string): GridProfile {
-  return PROFILES[country.toUpperCase()] ?? GB;
+/**
+ * Gujarat. Worth its own curve rather than sharing India's: the state carries one of the country's
+ * largest solar and wind fleets, so its midday dip is far deeper than a national average, and its
+ * commercial tariff is time-of-day banded with a surcharge through the two demand peaks and a
+ * rebate overnight. Prices are the shape of a GERC HT commercial tariff, in rupees.
+ */
+const IN_GJ: GridProfile = {
+  carbon: [
+    [0, 655],
+    [3, 635],
+    [6, 605],
+    [9, 470],
+    [12, 330],
+    [15, 405],
+    [18, 725],
+    [21, 700],
+  ],
+  price: [
+    [0, 4.2],
+    [3, 4.2],
+    [6, 4.9],
+    [9, 6.7],
+    [12, 5.2],
+    [15, 5.2],
+    [18, 6.7],
+    [21, 6.2],
+  ],
+  renewable: [
+    [0, 0.18],
+    [3, 0.2],
+    [6, 0.23],
+    [9, 0.43],
+    [12, 0.62],
+    [15, 0.5],
+    [18, 0.13],
+    [21, 0.16],
+  ],
+  mix: { solar: 0.55, wind: 0.45 },
+  // Gujarat has almost no hydro; what is firm here is biomass and waste, and there is little of it.
+  firmShare: 0.04,
+  // Gujarat is dispatched as part of the Western region, which is the granularity published.
+  mapsZone: 'IN-WE',
+};
+
+const PROFILES: Record<string, GridProfile> = { GB, IN, 'IN-GJ': IN_GJ };
+
+/**
+ * The profile for a grid, most specific first: a state or region where we model one, then the
+ * country, then Great Britain for anywhere not modelled yet. Grids are regional things — Gujarat
+ * and Karnataka sit in the same country and do not look alike.
+ */
+export function gridProfileFor(country: string, regionCode?: string): GridProfile {
+  const nation = country.toUpperCase();
+  const region = regionCode?.toUpperCase();
+  if (region) {
+    const regional = PROFILES[`${nation}-${region}`];
+    if (regional) return regional;
+  }
+  return PROFILES[nation] ?? GB;
+}
+
+/**
+ * The Electricity Maps zone for a grid, and only where we actually model that grid.
+ *
+ * Deliberately not read off the profile `gridProfileFor` returns, because that one falls back to
+ * Great Britain for anywhere unmodelled. Borrowing a curve shape from Britain is a stated
+ * approximation; borrowing Britain's *zone* would fetch Britain's real carbon intensity and serve
+ * it as another country's, which is not an approximation but a wrong number wearing a source name.
+ */
+export function mapsZoneFor(country: string, regionCode?: string): string | undefined {
+  const nation = country.toUpperCase();
+  const region = regionCode?.toUpperCase();
+  const exact = (region && PROFILES[`${nation}-${region}`]) || PROFILES[nation];
+  return exact?.mapsZone;
+}
+
+/**
+ * What to call the grid a site sits on, in the words used to label a forecast. "IN" would be a
+ * half-truth for a Gujarat site: the numbers come from a Gujarat curve, and the label should say
+ * so rather than implying one national average.
+ */
+export function gridNameFor(country: string, regionCode?: string): string {
+  const nation = country.toUpperCase();
+  const region = regionCode?.toUpperCase();
+  return region && PROFILES[`${nation}-${region}`] ? `${nation}-${region}` : nation;
 }
 
 /** Piecewise linear around the clock, so midnight joins back up with hour 23. */
@@ -147,7 +253,7 @@ export function syntheticValues(
 
 export function syntheticForecast(site: Site, startMs: number, hours: number, stepMinutes = 15): ForecastSnapshot {
   const count = Math.ceil((hours * 60) / stepMinutes);
-  const profile = gridProfileFor(site.country);
+  const profile = gridProfileFor(site.country, site.regionCode);
   const series = (curve: Curve) =>
     makeSeries(startMs, stepMinutes, syntheticValues(curve, startMs, stepMinutes, count, site.timezone));
   return {
@@ -157,6 +263,6 @@ export function syntheticForecast(site: Site, startMs: number, hours: number, st
     renewable: series(profile.renewable),
     actualCarbon: null,
     sources: { carbon: 'synthetic', price: 'synthetic', renewable: 'synthetic' },
-    notes: [`synthetic daily profile for ${site.country}, no external data`],
+    notes: [`modelled daily profile for ${gridNameFor(site.country, site.regionCode)}, no external data`],
   };
 }
