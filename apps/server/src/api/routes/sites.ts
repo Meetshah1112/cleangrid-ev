@@ -13,8 +13,17 @@ export async function registerSiteRoutes(app: FastifyInstance, ctx: ApiContext):
     return site;
   };
 
-  /** Every signed-in user needs to know which sites exist; a driver picks one to charge at. */
-  app.get('/sites', async () => ok(await ctx.repos.sites.list()));
+  /**
+   * Every signed-in user needs to know which sites exist; a driver picks one to charge at.
+   *
+   * Only the sites this process runs. The store keeps every site it has ever been seeded with, so
+   * one from a previous scenario is still on disk — and offering a driver a car park with no
+   * optimiser and no chargers behind it is worse than not listing it at all.
+   */
+  app.get('/sites', async () => {
+    const sites = await ctx.repos.sites.list();
+    return ok(sites.filter((site) => ctx.runtimes.has(site.id)));
+  });
 
   app.get('/sites/:siteId/forecast', async (request) => {
     const { siteId } = request.params as { siteId: string };

@@ -242,7 +242,14 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
     // marked open is an orphan: leaving it active would have the optimiser plan for absent cars.
     const orphans = await client
       .from('sessions')
-      .update({ status: 'aborted', unplugged_at: new Date().toISOString() })
+      .update({
+        status: 'aborted',
+        unplugged_at: new Date().toISOString(),
+        // Their last reading was a car that is no longer there. Left as it was, the session list
+        // shows a closed session still drawing seven kilowatts for the rest of time.
+        current_power_kw: 0,
+        limit_kw: null,
+      })
       .in('status', ['pending', 'active'])
       .select('id');
     if (orphans.error) options.logger.warn({ error: orphans.error.message }, 'could not close orphaned sessions');

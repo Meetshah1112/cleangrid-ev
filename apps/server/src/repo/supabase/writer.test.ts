@@ -118,7 +118,7 @@ describe('MirrorWriter', () => {
 
     // Assert: deferred to a later pass rather than counted as lost.
     expect(calls.filter((call) => call.table === 'connectors')).toHaveLength(3);
-    expect(writer.stats()).toMatchObject({ written: 1, failed: 0, degraded: false, queued: 0 });
+    expect(writer.stats()).toMatchObject({ written: 1, failed: 0, degraded: false, complete: true, queued: 0 });
   });
 
   test('splits a large queue into batches', async () => {
@@ -149,7 +149,7 @@ describe('MirrorWriter', () => {
     expect(writer.stats()).toMatchObject({ written: 1, failed: 0, degraded: false });
   });
 
-  test('gives up after the retry and stays degraded rather than blocking', async () => {
+  test('gives up after the retry and says so rather than blocking', async () => {
     // Arrange
     const { client } = fakeClient((table) => `${table} still broken`);
     const writer = new MirrorWriter(client, nullLogger());
@@ -159,7 +159,7 @@ describe('MirrorWriter', () => {
     await writer.flush();
 
     // Assert
-    expect(writer.stats()).toMatchObject({ written: 0, failed: 1, degraded: true });
+    expect(writer.stats()).toMatchObject({ written: 0, failed: 1, degraded: true, complete: false });
     expect(writer.stats().lastError).toContain('sessions');
   });
 
@@ -174,7 +174,8 @@ describe('MirrorWriter', () => {
     // Assert
     expect(writer.stats().dropped).toBe(3);
     await writer.flush();
-    expect(writer.stats()).toMatchObject({ written: 2, degraded: true });
+    // Still failing, so still degraded — and the record has a hole in it for good.
+    expect(writer.stats()).toMatchObject({ written: 2, degraded: true, complete: false });
   });
 
   test('stops accepting writes once closed', async () => {

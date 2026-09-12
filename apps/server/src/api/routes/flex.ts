@@ -14,7 +14,11 @@ import { ok } from '../app';
 export async function registerFlexRoutes(app: FastifyInstance, ctx: ApiContext): Promise<void> {
   app.get('/grid/sites', async (request) => {
     requireRole(request.principal, 'grid_operator', 'operator');
-    const sites = await ctx.repos.sites.list();
+    // Only the sites this process is actually running. The store outlives any one run, so a site
+    // from an earlier scenario is still on disk; listing it here would offer the operator a
+    // flexibility request against a site with no optimiser behind it to honour it.
+    const all = await ctx.repos.sites.list();
+    const sites = all.filter((site) => ctx.runtimes.has(site.id));
     return ok(
       await Promise.all(
         sites.map(async (site) => {

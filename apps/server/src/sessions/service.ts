@@ -245,6 +245,7 @@ export class SessionService {
       status: 'aborted',
       unpluggedMs: this.deps.clock.now(),
       currentPowerKw: 0,
+      limitKw: null,
       updatedMs: this.deps.clock.now(),
     });
     this.deps.logger.warn({ sessionId, reason }, 'session abandoned');
