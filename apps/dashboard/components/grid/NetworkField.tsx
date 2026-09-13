@@ -245,6 +245,35 @@ function FieldPanel({
   const labels = labelsFor(placed, 18);
   const count = panel.sites.length;
 
+  // The graticule is background: on a small panel its degree labels give way to each other and to
+  // the site names, rather than printing over them. The lines themselves always stay.
+  const names = placed.map(({ site, x, y, r }, index) => {
+    const label = labels[index] ?? { x, y: y + r + 18, beside: false, leader: false };
+    const width = (site.name.split(' ')[0] ?? site.name).length * 7.6;
+    const from = label.beside ? label.x : label.x - width / 2;
+    return { x0: from, x1: from + width, y0: label.y - 13, y1: label.y + 3 };
+  });
+  const clearOfNames = (x0: number, x1: number, y0: number, y1: number): boolean =>
+    names.every((name) => x1 < name.x0 - 4 || x0 > name.x1 + 4 || y1 < name.y0 - 2 || y0 > name.y1 + 2);
+  const TICK_CHAR_W = 6.4;
+  const meridians = graticule(bounds.west, bounds.east, Math.max(2, Math.round(innerW / 160))).map((lng) => {
+    const { x } = project(bounds.north, lng);
+    const text = degrees(lng, 'E', 'W');
+    const half = (text.length * TICK_CHAR_W) / 2;
+    const baseline = panel.y + panel.h - 10;
+    return { lng, x, text, labelled: clearOfNames(x - half, x + half, baseline - 11, baseline + 2) };
+  });
+  let lastLabelledY = Number.NEGATIVE_INFINITY;
+  const parallels = graticule(bounds.south, bounds.north, Math.max(2, Math.round(innerH / 90)))
+    .map((lat) => ({ lat, y: project(lat, bounds.west).y, text: degrees(lat, 'N', 'S') }))
+    .sort((a, b) => a.y - b.y)
+    .map((line) => {
+      const end = panel.x + panel.w - 8;
+      const labelled = line.y - lastLabelledY >= 18 && clearOfNames(end - line.text.length * TICK_CHAR_W, end, line.y - 15, line.y - 2);
+      if (labelled) lastLabelledY = line.y;
+      return { ...line, labelled };
+    });
+
   return (
     <g>
       <rect x={panel.x} y={panel.y} width={panel.w} height={panel.h} className="field-panel" />
@@ -256,28 +285,26 @@ function FieldPanel({
         {count} site{count === 1 ? '' : 's'}
       </text>
 
-      {graticule(bounds.west, bounds.east, Math.max(2, Math.round(innerW / 160))).map((lng) => {
-        const { x } = project(bounds.north, lng);
-        return (
-          <g key={`m${lng}`}>
-            <line x1={x} x2={x} y1={panel.y + pad.top - 6} y2={panel.y + panel.h - pad.bottom + 6} className="field-grid" />
+      {meridians.map(({ lng, x, text, labelled }) => (
+        <g key={`m${lng}`}>
+          <line x1={x} x2={x} y1={panel.y + pad.top - 6} y2={panel.y + panel.h - pad.bottom + 6} className="field-grid" />
+          {labelled ? (
             <text x={x} y={panel.y + panel.h - 10} className="field-tick">
-              {degrees(lng, 'E', 'W')}
+              {text}
             </text>
-          </g>
-        );
-      })}
-      {graticule(bounds.south, bounds.north, Math.max(2, Math.round(innerH / 90))).map((lat) => {
-        const { y } = project(lat, bounds.west);
-        return (
-          <g key={`p${lat}`}>
-            <line x1={panel.x + pad.x - 6} x2={panel.x + panel.w - pad.x + 6} y1={y} y2={y} className="field-grid" />
+          ) : null}
+        </g>
+      ))}
+      {parallels.map(({ lat, y, text, labelled }) => (
+        <g key={`p${lat}`}>
+          <line x1={panel.x + pad.x - 6} x2={panel.x + panel.w - pad.x + 6} y1={y} y2={y} className="field-grid" />
+          {labelled ? (
             <text x={panel.x + panel.w - 8} y={y - 4} className="field-tick is-end">
-              {degrees(lat, 'N', 'S')}
+              {text}
             </text>
-          </g>
-        );
-      })}
+          ) : null}
+        </g>
+      ))}
 
       {placed.map(({ site, used, r, x, y }, index) => {
         const label = labels[index] ?? { x, y: y + r + 18, beside: false, leader: false };

@@ -32,6 +32,64 @@ const ROW = 40;
 const SKY = 20;
 const HEAD = 30;
 const TIP_W = 330;
+/** A 12px semibold character, slightly generous, for placing labels before the browser has drawn them. */
+const CHAR_W = 7;
+const WINDOW_TEXT = 'clean window';
+
+type Anchor = 'start' | 'middle' | 'end';
+interface SkyLabel {
+  readonly x: number;
+  readonly anchor: Anchor;
+}
+
+/**
+ * Where the two labels under the sky strip go: "now" beside its line, "clean window" over its band.
+ *
+ * They share one line of height, and a clean window that ends near now put one on top of the other.
+ * Each has a few acceptable places, tried in order of preference; the first pair that fits inside the
+ * plot without touching wins. If none does, the band goes unlabelled rather than illegible, since
+ * its tint and the link that brought the operator here already say what it is.
+ */
+function placeSkyLabels(
+  window: { readonly x0: number; readonly x1: number } | null,
+  nowX: number | null,
+  nowText: string,
+  left: number,
+  right: number,
+): { readonly window: SkyLabel | null; readonly now: SkyLabel | null } {
+  const extent = (label: SkyLabel, width: number): [number, number] =>
+    label.anchor === 'start' ? [label.x, label.x + width] : label.anchor === 'end' ? [label.x - width, label.x] : [label.x - width / 2, label.x + width / 2];
+  const fits = (label: SkyLabel, width: number): boolean => {
+    const [from, to] = extent(label, width);
+    return from >= left - 2 && to <= right + 2;
+  };
+  const apart = (a: SkyLabel, aw: number, b: SkyLabel, bw: number): boolean => {
+    const [a0, a1] = extent(a, aw);
+    const [b0, b1] = extent(b, bw);
+    return a1 + 8 <= b0 || b1 + 8 <= a0;
+  };
+
+  const nowW = nowText.length * CHAR_W;
+  const windowW = WINDOW_TEXT.length * CHAR_W;
+  const nowOptions: SkyLabel[] = nowX === null ? [] : [{ x: nowX + 6, anchor: 'start' as const }, { x: nowX - 6, anchor: 'end' as const }].filter((option) => fits(option, nowW));
+  const windowOptions: SkyLabel[] =
+    window === null
+      ? []
+      : [
+          { x: (window.x0 + window.x1) / 2, anchor: 'middle' as const },
+          { x: window.x0 + 6, anchor: 'start' as const },
+          { x: window.x1 - 6, anchor: 'end' as const },
+        ].filter((option) => fits(option, windowW));
+
+  const now = nowOptions[0] ?? null;
+  if (windowOptions.length === 0) return { window: null, now };
+  if (nowOptions.length === 0) return { window: windowOptions[0] ?? null, now: null };
+  for (const nowOption of nowOptions) {
+    const clear = windowOptions.find((option) => apart(option, windowW, nowOption, nowW));
+    if (clear) return { window: clear, now: nowOption };
+  }
+  return { window: null, now };
+}
 
 export function PlanRiver({
   plan,
@@ -98,6 +156,15 @@ export function PlanRiver({
     return { left: Math.min(left, Math.max(0, size.width - TIP_W)), top: bodyTop + rows.indexOf(shown) * ROW + ROW / 2 };
   })();
   const highlightSpan = highlight ? { x0: x((highlight.startMs - plan.grid.startMs) / slotMs), x1: x((highlight.endMs - plan.grid.startMs) / slotMs) } : null;
+  const nowShown = nowMs > 0 && nowSlot >= 0 && nowSlot <= slots;
+  const nowText = `now ${clockTime(nowMs, timezone)}`;
+  const skyLabels = placeSkyLabels(
+    highlightSpan && highlightSpan.x1 > highlightSpan.x0 ? highlightSpan : null,
+    nowShown ? x(nowSlot) : null,
+    nowText,
+    padLeft,
+    padLeft + plotW,
+  );
 
   return (
     <div className="river" ref={ref} style={{ height }}>
@@ -114,9 +181,11 @@ export function PlanRiver({
         {highlightSpan && highlightSpan.x1 > highlightSpan.x0 ? (
           <g className="river-window">
             <rect x={highlightSpan.x0} y={SKY + 4} width={highlightSpan.x1 - highlightSpan.x0} height={height - SKY - 30} rx="8" />
-            <text x={(highlightSpan.x0 + highlightSpan.x1) / 2} y={SKY + 20}>
-              clean window
-            </text>
+            {skyLabels.window ? (
+              <text x={skyLabels.window.x} y={SKY + 20} textAnchor={skyLabels.window.anchor}>
+                {WINDOW_TEXT}
+              </text>
+            ) : null}
           </g>
         ) : null}
 
@@ -188,12 +257,14 @@ export function PlanRiver({
           );
         })}
 
-        {nowMs > 0 && nowSlot >= 0 && nowSlot <= slots ? (
+        {nowShown ? (
           <g className="river-now">
             <line x1={x(nowSlot)} x2={x(nowSlot)} y1={SKY + 6} y2={bodyTop + rows.length * ROW} />
-            <text x={x(nowSlot) + 6} y={SKY + 20}>
-              now {clockTime(nowMs, timezone)}
-            </text>
+            {skyLabels.now ? (
+              <text x={skyLabels.now.x} y={SKY + 20} textAnchor={skyLabels.now.anchor}>
+                {nowText}
+              </text>
+            ) : null}
           </g>
         ) : null}
 

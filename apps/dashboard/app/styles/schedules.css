@@ -261,8 +261,8 @@
   fill: rgb(185 227 107 / 0.22);
 }
 
+/* Anchored per label in PlanRiver: a stylesheet text-anchor would override the placement chosen there. */
 .river-window text {
-  text-anchor: middle;
   font-size: 12px;
   font-weight: 600;
   fill: var(--canopy-ink);

@@ -30,15 +30,23 @@ export interface ChartLayout {
   readonly ticks: readonly { readonly x: number; readonly label: string }[];
 }
 
+/** The two lines of the best-window label, the gap below it, and a breath above it. */
+const WINDOW_LABEL_ROOM = 68;
+/** Shorter than this and three lines drawn over each other stop being readable. */
+const MIN_CHART_H = 110;
+
 export function chartLayout(forecast: Forecast | null, geometry: SceneGeometry, timezone: string): ChartLayout | null {
   if (!forecast || forecast.carbonGPerKwh.length < 2) return null;
   const { width, height, horizonY } = geometry;
   const narrow = width < 760;
   const left = narrow ? 44 : Math.max(64, width * 0.05);
   const right = width - (narrow ? 18 : Math.max(40, width * 0.035));
-  const top = horizonY + height * (narrow ? 0.04 : 0.02);
   // Room below for the ticks and a legend that can wrap, all clear of the wave that opens the next section.
   const bottom = height - (narrow ? 150 : 120);
+  // The window's label hangs above the chart, so the chart starts far enough below the headline copy
+  // for the label to fit between them; on a short screen the copy reaches past the horizon.
+  const belowCopy = geometry.copy ? geometry.copy.bottom + WINDOW_LABEL_ROOM : 0;
+  const top = Math.min(Math.max(horizonY + height * (narrow ? 0.04 : 0.02), belowCopy), bottom - MIN_CHART_H);
   const count = forecast.carbonGPerKwh.length;
   const stepMs = forecast.stepMinutes * 60_000;
 

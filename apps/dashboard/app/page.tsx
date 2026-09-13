@@ -8,7 +8,7 @@ import { ChargerLaneLayer, LaneDetail, LaneLegend, laneLayout } from '../compone
 import { EnergyHorizonLayer, horizonLayout } from '../components/overview/EnergyHorizon';
 import { SchedulerActivity } from '../components/overview/SchedulerActivity';
 import { SitePlan } from '../components/overview/SitePlan';
-import { Scene, washTone } from '../components/scene/Scene';
+import { Scene, clearOfCopy, washTone } from '../components/scene/Scene';
 import { Wave } from '../components/scene/Wave';
 import { api } from '../lib/api';
 import { readBays, type Bay } from '../lib/bays';
@@ -25,6 +25,8 @@ export default function OverviewPage() {
 }
 
 const HOUR = 3_600_000;
+/** A serif figure and a word, as the labels in the sky are set: about this wide either side of centre, and this tall. */
+const SKY_LABEL = { halfWidth: 72, height: 32 };
 
 function OverviewBody({ site, live }: { readonly site: Site | null; readonly live: LiveSite }) {
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -129,7 +131,10 @@ function OverviewBody({ site, live }: { readonly site: Site | null; readonly liv
                 {horizon ? (
                   <>
                     {geometry.nowX !== null && horizon.shareNow !== null && horizon.topNow !== null ? (
-                      <p className="horizon-label is-now" style={{ left: clampX(geometry.nowX), top: horizon.topNow - 12 }}>
+                      <p
+                        className="horizon-label is-now"
+                        style={{ left: clampX(geometry.nowX), top: clearOfCopy(geometry, clampX(geometry.nowX), horizon.topNow - 12, SKY_LABEL) }}
+                      >
                         <strong>{percent(horizon.shareNow)}</strong> renewable
                       </p>
                     ) : null}
@@ -144,7 +149,10 @@ function OverviewBody({ site, live }: { readonly site: Site | null; readonly liv
                     {window && horizon.windowSpan ? (
                       <p
                         className="horizon-label is-window"
-                        style={{ left: clampX((horizon.windowSpan.x0 + horizon.windowSpan.x1) / 2), top: horizon.baseline - geometry.height * 0.25 }}
+                        style={{
+                          left: clampX((horizon.windowSpan.x0 + horizon.windowSpan.x1) / 2),
+                          top: clearOfCopy(geometry, clampX((horizon.windowSpan.x0 + horizon.windowSpan.x1) / 2), horizon.baseline - geometry.height * 0.25, SKY_LABEL),
+                        }}
                       >
                         <strong>{clockTime(window.startMs, tz)}</strong> clean run
                       </p>

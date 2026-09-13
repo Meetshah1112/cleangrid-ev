@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { css, localHour, mix, ridge, scatter, skyAt, sunElevation, type Rgb } from './sky';
 import { useSize } from './useSize';
 
@@ -29,6 +29,18 @@ export interface SceneGeometry {
   readonly meadowY: (x: number) => number;
   /** Null when now is outside the span. */
   readonly nowX: number | null;
+  /**
+   * The box the headline copy occupies, once the browser has laid it out; null before then or when
+   * the scene has none. Its height depends on how the headline wraps at this width, which no
+   * fraction of the scene's height can predict, so labels written onto the landscape read it here.
+   */
+  readonly copy: CopyBox | null;
+}
+
+export interface CopyBox {
+  readonly left: number;
+  readonly right: number;
+  readonly bottom: number;
 }
 
 export interface SceneFeatures {
@@ -83,6 +95,7 @@ export function Scene({
   wash = false,
 }: SceneProps) {
   const { ref, size } = useSize<HTMLDivElement>({ width: 1440, height: 720 });
+  const { ref: overlayRef, copy } = useCopyBox();
   // Several scenes can share a page, and SVG ids are global to the document.
   const uid = `sc${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const id = (name: string): string => `${uid}-${name}`;
@@ -107,8 +120,9 @@ export function Scene({
       // A narrow lake: the near meadow rises close to the far shore, so water reads as a sliver of light.
       meadowY: (px: number) => horizonY + height * (0.026 + 0.04 * ridge(px / width, 8.8)),
       nowX: known && nowMs >= startMs && nowMs <= startMs + spanMs ? ((nowMs - startMs) / spanMs) * width : null,
+      copy,
     };
-  }, [width, height, horizon, known, startHour, spanMs, startMs, nowMs]);
+  }, [width, height, horizon, known, startHour, spanMs, startMs, nowMs, copy]);
 
   const art = useMemo(() => {
     const { horizonY, hourAt, ridgeY, meadowY } = geometry;
@@ -364,9 +378,61 @@ export function Scene({
         {layers?.(geometry)}
       </svg>
 
-      {children ? <div className="scene-overlay">{children(geometry)}</div> : null}
+      {children ? (
+        <div className="scene-overlay" ref={overlayRef}>
+          {children(geometry)}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * Measures the `.hero-copy` block inside the overlay. Checked after every render, because the copy
+ * can change without resizing anything the page observes (a site name arriving in the eyebrow), and
+ * on resize, because the headline rewraps. State only changes when the box does, so it settles.
+ */
+function useCopyBox() {
+  const [overlay, setOverlay] = useState<HTMLDivElement | null>(null);
+  const [copy, setCopy] = useState<CopyBox | null>(null);
+  const ref = useCallback((node: HTMLDivElement | null) => setOverlay(node), []);
+
+  const measure = useCallback(() => {
+    const element = overlay?.querySelector<HTMLElement>(':scope > .hero-copy');
+    if (!overlay || !element) {
+      setCopy((current) => (current === null ? current : null));
+      return;
+    }
+    const frame = overlay.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
+    const next = { left: Math.round(box.left - frame.left), right: Math.round(box.right - frame.left), bottom: Math.round(box.bottom - frame.top) };
+    setCopy((current) => (current && current.left === next.left && current.right === next.right && current.bottom === next.bottom ? current : next));
+  }, [overlay]);
+
+  useLayoutEffect(measure);
+
+  useEffect(() => {
+    if (!overlay) return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(overlay);
+    const element = overlay.querySelector(':scope > .hero-copy');
+    if (element) observer.observe(element);
+    // A web font arriving rewraps the headline without resizing the overlay.
+    void document.fonts?.ready.then(measure);
+    return () => observer.disconnect();
+  }, [overlay, measure]);
+
+  return { ref, copy };
+}
+
+/**
+ * Where a label that hangs above `top` (its bottom edge) at `x` can sit without covering the
+ * headline copy: unchanged when it is clear of the copy's columns, otherwise just below the copy.
+ */
+export function clearOfCopy(geometry: SceneGeometry, x: number, top: number, label: { readonly halfWidth: number; readonly height: number }): number {
+  const { copy } = geometry;
+  if (!copy || x + label.halfWidth < copy.left || x - label.halfWidth > copy.right) return top;
+  return Math.max(top, copy.bottom + label.height + 8);
 }
 
 /** The sky colour an edge wash holds still: the edge's own sky, part way between zenith and horizon. */

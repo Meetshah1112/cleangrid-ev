@@ -1,6 +1,7 @@
 'use client';
 
 import type { SceneGeometry } from '../scene/Scene';
+import { useOffsetBox, type OffsetBox } from '../scene/useOffsetBox';
 import { clockTime, kw } from '../../lib/format';
 import type { Plan } from '../../lib/types';
 
@@ -95,6 +96,27 @@ export function SiteDrawLayer({ layout, width }: { readonly layout: DrawLayout; 
   );
 }
 
+/**
+ * Where the planned-peak label goes: centred over the tallest block, unless that puts it on the
+ * chart's heading, which happens whenever the peak comes early in the day and reaches the top of the
+ * chart. Then it moves right, level with the peak, until it clears the heading, and only drops below
+ * the heading when there is no room to the right. `x` is the label's centre and `y` its bottom edge.
+ */
+function peakPosition(layout: DrawLayout, width: number, centre: number, head: OffsetBox | null, label: OffsetBox | null): { x: number; y: number } {
+  const y = layout.peak.y - 8;
+  if (!head || !label) return { x: centre, y };
+  const gap = 12;
+  const overlaps = (x: number, bottom: number): boolean =>
+    x + label.width / 2 + gap > head.left &&
+    x - label.width / 2 - gap < head.left + head.width &&
+    bottom > head.top - gap / 2 &&
+    bottom - label.height < head.top + head.height + gap / 2;
+  if (!overlaps(centre, y)) return { x: centre, y };
+  const beside = head.left + head.width + gap + label.width / 2;
+  if (beside + label.width / 2 <= width - 8) return { x: Math.max(centre, beside), y };
+  return { x: centre, y: head.top + head.height + gap + label.height };
+}
+
 export function SiteDrawOverlay({
   layout,
   plan,
@@ -110,15 +132,18 @@ export function SiteDrawOverlay({
   readonly scheduled: number;
   readonly timezone: string;
 }) {
+  const head = useOffsetBox<HTMLDivElement>();
+  const peakLabel = useOffsetBox<HTMLParagraphElement>();
   const clampX = (px: number): number => Math.min(Math.max(px, 110), geometry.width - 130);
   const capLabel =
     connectionKw !== null && Math.abs(connectionKw - layout.capKw) > 0.5
       ? `${kw(layout.capKw, 0)} kW planning limit, held below the ${kw(connectionKw, 0)} kW connection`
       : `${kw(layout.capKw, 0)} kW connection`;
+  const peak = peakPosition(layout, geometry.width, clampX(layout.peak.x), head.box, peakLabel.box);
 
   return (
     <>
-      <div className="draw-head" style={{ top: layout.top - 54 }}>
+      <div className="draw-head" ref={head.ref} style={{ top: layout.top - 54 }}>
         <p className="draw-title">Site draw after optimisation</p>
         <p className="draw-facts">
           <span>
@@ -136,7 +161,7 @@ export function SiteDrawOverlay({
       <p className="draw-label is-cap" style={{ right: 'var(--page-x)', top: layout.y(layout.capKw) - 24 }}>
         {capLabel}
       </p>
-      <p className="draw-label is-peak" style={{ left: clampX(layout.peak.x), top: layout.peak.y - 8 }}>
+      <p className="draw-label is-peak" ref={peakLabel.ref} style={{ left: peak.x, top: peak.y }}>
         planned peak <strong>{kw(layout.peak.kw)} kW</strong>
       </p>
 
