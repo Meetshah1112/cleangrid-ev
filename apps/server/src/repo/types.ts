@@ -57,6 +57,14 @@ export interface SessionRepo {
   findPending(chargerId: string, connectorId: number, idTag?: string): Promise<ChargingSession | null>;
   /** A connector can only carry one transaction at a time; this is the one it is carrying. */
   findActiveByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null>;
+  /**
+   * The session a driver has open, charging or waiting to start, however many finished ones they
+   * have. Looked for directly rather than among their latest, because the latest by date can all be
+   * finished sessions dated ahead of an open one.
+   */
+  findOpenByDriver(driverId: string): Promise<ChargingSession | null>;
+  /** A session holding a connector, charging or declared and waiting for the cable. */
+  findOpenByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null>;
   nextTransactionId(): Promise<number>;
   /**
    * Continue the OCPP transaction sequence above ids already issued. A restart must not reuse a

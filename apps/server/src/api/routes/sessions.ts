@@ -11,7 +11,7 @@ import {
   windowHours,
 } from '@cleangrid/shared';
 import type { FastifyInstance } from 'fastify';
-import { AppError, NotFoundError, ValidationError } from '../../errors';
+import { AppError, ConflictError, NotFoundError, ValidationError } from '../../errors';
 import { requireRole, requireSessionAccess } from '../auth';
 import { runtimeFor, runtimeForSession, type ApiContext } from '../context';
 import { baseLoadForGrid } from '../../optimiser/problem';
@@ -33,6 +33,16 @@ export async function registerSessionRoutes(app: FastifyInstance, ctx: ApiContex
     if (!charger) throw new NotFoundError('charger', body.chargerId);
     if (body.connectorId > charger.connectorCount) {
       throw new ValidationError('unknown_connector', `charger ${charger.id} has no connector ${body.connectorId}`);
+    }
+
+    // One car, one session: a second would be planned for a car that is not there.
+    const open = await ctx.repos.sessions.findOpenByDriver(driverId);
+    if (open) {
+      throw new ConflictError('session_open', `You already have a session on ${open.chargerId}. Stop it before starting another.`);
+    }
+    const occupying = await ctx.repos.sessions.findOpenByConnector(charger.id, body.connectorId);
+    if (occupying) {
+      throw new ConflictError('bay_in_use', `${charger.label} already has a car on it. Choose another bay.`);
     }
 
     const vehicle = body.vehicleId

@@ -86,8 +86,7 @@ export async function registerMeRoutes(app: FastifyInstance, ctx: ApiContext): P
 
   app.get('/sessions/current', async (request) => {
     requireRole(request.principal, 'driver');
-    const sessions = await ctx.repos.sessions.listByDriver(request.principal.id, 10);
-    const current = sessions.find((session) => session.status === 'active' || session.status === 'pending') ?? null;
+    const current = await ctx.repos.sessions.findOpenByDriver(request.principal.id);
     if (!current) return ok(null);
     const plan = runtimeForSession(ctx, current.siteId)?.loop.latestPlan ?? null;
     // State of charge is reported by the car, not derived here: null until a meter value carries it.

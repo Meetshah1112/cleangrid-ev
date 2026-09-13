@@ -140,6 +140,8 @@ export function createSupabaseRepositories(options: SupabaseRepoOptions): Supaba
       findPending: (chargerId, connectorId, idTag) => memory.sessions.findPending(chargerId, connectorId, idTag),
       findActiveByConnector: (chargerId, connectorId) =>
         memory.sessions.findActiveByConnector(chargerId, connectorId),
+      findOpenByDriver: (driverId) => memory.sessions.findOpenByDriver(driverId),
+      findOpenByConnector: (chargerId, connectorId) => memory.sessions.findOpenByConnector(chargerId, connectorId),
       nextTransactionId: () => memory.sessions.nextTransactionId(),
       resumeTransactionIds: (highest) => memory.sessions.resumeTransactionIds(highest),
       save: async (session: ChargingSession) =>

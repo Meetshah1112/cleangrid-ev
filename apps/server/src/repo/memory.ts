@@ -103,6 +103,16 @@ class MemoryConnectorRepo implements ConnectorRepo {
   }
 }
 
+/** Of these sessions, the open one that matters: charging before waiting, then the newest. */
+function openest(sessions: readonly ChargingSession[]): ChargingSession | null {
+  const rank = (session: ChargingSession): number => (session.status === 'active' ? 0 : 1);
+  return (
+    sessions
+      .filter((session) => session.status === 'active' || session.status === 'pending')
+      .sort((a, b) => rank(a) - rank(b) || b.createdMs - a.createdMs)[0] ?? null
+  );
+}
+
 class MemorySessionRepo extends Store<ChargingSession> implements SessionRepo {
   private transactionCounter = 1000;
 
@@ -157,6 +167,14 @@ class MemorySessionRepo extends Store<ChargingSession> implements SessionRepo {
         )
         .sort((a, b) => b.pluggedInMs - a.pluggedInMs)[0] ?? null
     );
+  }
+
+  async findOpenByDriver(driverId: string): Promise<ChargingSession | null> {
+    return openest([...this.items.values()].filter((session) => session.driverId === driverId));
+  }
+
+  async findOpenByConnector(chargerId: string, connectorId: number): Promise<ChargingSession | null> {
+    return openest([...this.items.values()].filter((session) => session.chargerId === chargerId && session.connectorId === connectorId));
   }
 
   async nextTransactionId(): Promise<number> {
