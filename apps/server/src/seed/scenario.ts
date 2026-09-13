@@ -14,7 +14,23 @@ import type { Repositories } from '../repo/types';
  */
 export const NETWORK_OPERATOR_ID = 'ops-network';
 
+/**
+ * The grid operator who asks sites for flexibility. Seeded here too, not only by the scenarios that
+ * happen to name one, because the console's Grid Flex page acts as this account on every deployment.
+ */
+export const GRID_OPERATOR_ID = 'grid-ops';
+
 export async function seedNetworkOperator(repos: Repositories): Promise<void> {
+  await repos.profiles.save({
+    id: GRID_OPERATOR_ID,
+    role: 'grid_operator',
+    displayName: 'Regional Grid Control',
+    siteId: null,
+    idTag: null,
+    defaultMode: 'balanced',
+    defaultDwellHours: 8,
+    defaultEnergyKwh: 20,
+  });
   await repos.profiles.save({
     id: NETWORK_OPERATOR_ID,
     role: 'operator',

@@ -2,7 +2,7 @@ import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { AppError } from '../errors';
-import { authenticate } from './auth';
+import { authenticate, createAccessControl, type AccessControl } from './auth';
 import type { ApiContext } from './context';
 import { registerFlexRoutes } from './routes/flex';
 import { registerMeRoutes } from './routes/me';
@@ -14,8 +14,11 @@ import { registerSystemRoutes } from './routes/system';
 export const ok = <T>(data: T, meta?: Record<string, unknown>): { ok: true; data: T; meta?: Record<string, unknown> } =>
   meta === undefined ? { ok: true, data } : { ok: true, data, meta };
 
-export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+/** `access` is shared with the socket upgrades, so a wrong code counts the same whichever door it was tried at. */
+export async function buildApp(ctx: ApiContext, access: AccessControl = createAccessControl(ctx)): Promise<FastifyInstance> {
+  // Trust only the configured number of proxy hops: the address the nearest proxy saw, never an entry the client wrote.
+  const hops = ctx.config.TRUST_PROXY;
+  const app = Fastify({ logger: false, trustProxy: hops > 0 ? (_address: string, hop: number) => hop < hops : false });
   /**
    * Methods are named rather than left to a default.
    *
@@ -25,10 +28,13 @@ export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
    * A list that has to be edited when a verb is added is a smaller cost than one that silently
    * disagrees with the routes behind it.
    */
+  const origins = ctx.config.CORS_ORIGINS?.split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
   await app.register(cors, {
-    origin: true,
+    origin: origins && origins.length > 0 ? origins : true,
     methods: ['GET', 'HEAD', 'OPTIONS', 'POST', 'PATCH'],
-    allowedHeaders: ['content-type', 'authorization', 'x-dev-role', 'x-dev-user'],
+    allowedHeaders: ['content-type', 'authorization', 'x-dev-role', 'x-dev-user', 'x-access-code'],
   });
 
   // Several endpoints take no body. A client that still sends a JSON content-type should get the
@@ -48,10 +54,17 @@ export async function buildApp(ctx: ApiContext): Promise<FastifyInstance> {
 
   app.addHook('onRequest', async (request) => {
     if (request.method === 'OPTIONS') return;
-    request.principal = await authenticate(request, ctx);
+    const path = request.url.split('?')[0] ?? '';
+    // The host's health check comes with no code, and must still be able to tell the server is up.
+    if (path === '/health') return;
+    request.principal = await authenticate(request, ctx, access);
   });
 
   app.setErrorHandler((error, request, reply) => {
+    // Who is getting codes wrong, and where, so a lockout can be traced. Never the code itself.
+    if (error instanceof AppError && (error.code === 'access_code_rejected' || error.code === 'too_many_attempts')) {
+      ctx.logger.warn({ reason: error.code, ip: request.ip, path: request.url.split('?')[0], agent: request.headers['user-agent'] }, 'access code refused');
+    }
     if (error instanceof AppError) {
       void reply
         .code(error.status)

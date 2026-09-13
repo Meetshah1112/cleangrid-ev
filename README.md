@@ -191,6 +191,7 @@ poor one for Britain, and the same arithmetic says so for both.
 - [Schema](docs/SCHEMA.md) and [API](docs/API.md)
 - [Driver screens](docs/SCREENS.md) and [Dashboard](docs/DASHBOARD.md)
 - [Review](docs/REVIEW.md): where the build drifted from the plan, and what the review found
+- [Deploy](docs/DEPLOY.md): Render, Supabase, Vercel and the APK, behind a shared access code
 - [Original plan](docs/PLAN.md)
 
 ## Build progress

@@ -2,14 +2,15 @@ import { scenarioStartMs, type Site } from '@cleangrid/shared';
 import 'dotenv/config';
 import type { Duplex } from 'node:stream';
 import { buildApp } from './api/app';
-import { DashboardChannel, WS_PATH_PREFIX } from './api/channel';
+import { createAccessControl } from './api/auth';
+import { DashboardChannel } from './api/channel';
 import type { ApiContext, SiteRuntime } from './api/context';
 import { createClock, loadConfig } from './config';
 import { EventBus } from './events';
 import { LiveForecastProvider } from './forecast/live';
 import { ForecastService, SyntheticForecastProvider } from './forecast/service';
 import { createLogger } from './logger';
-import { OCPP_PATH_PREFIX, OcppGateway } from './ocpp/gateway';
+import { OcppGateway } from './ocpp/gateway';
 import { DemandMeter } from './optimiser/demandMeter';
 import { DispatchService } from './optimiser/dispatcher';
 import { OptimiserLoop } from './optimiser/loop';
@@ -19,6 +20,7 @@ import { createSupabaseRepositories } from './repo/supabase';
 import { ReportService } from './reports/service';
 import { loadScenarioFiles, seedFromScenario, seedNetworkOperator } from './seed/scenario';
 import { SessionService } from './sessions/service';
+import { routeUpgrade } from './upgrade';
 
 const EMPTY_MIRROR = {
   queued: 0,
@@ -138,23 +140,12 @@ async function main(): Promise<void> {
     defaultSiteId: first.site.id,
     storage: { kind: config.REPO, stats: () => store?.stats() ?? EMPTY_MIRROR },
   };
-  const app = await buildApp(ctx);
+  const access = createAccessControl(ctx);
+  const app = await buildApp(ctx, access);
   const channel = new DashboardChannel({ bus, clock, repos, logger });
 
-  // Fastify does not own WebSocket upgrades, so chargers and dashboards are routed here by path.
-  app.server.on('upgrade', (request, socket, head) => {
-    const url = request.url ?? '';
-    const path = url.split('?')[0] ?? '';
-    if (path.startsWith(OCPP_PATH_PREFIX)) {
-      gateway.handleUpgrade(request, socket as Duplex, head, decodeURIComponent(path.slice(OCPP_PATH_PREFIX.length)));
-      return;
-    }
-    if (path.startsWith(WS_PATH_PREFIX)) {
-      channel.handleUpgrade(request, socket as Duplex, head, decodeURIComponent(path.slice(WS_PATH_PREFIX.length)));
-      return;
-    }
-    socket.destroy();
-  });
+  const upgrade = routeUpgrade({ config, codes: access.codes, guard: access.guard, logger, gateway, channel });
+  app.server.on('upgrade', (request, socket, head) => upgrade(request, socket as Duplex, head));
 
   await app.listen({ port: config.PORT, host: config.HOST });
   channel.start();
@@ -173,7 +164,8 @@ async function main(): Promise<void> {
       optimiser: config.OPTIMISER,
       scheduler: config.SCHEDULER,
       forecast: config.FORECAST,
-      devAuth: config.DEV_AUTH,
+      auth: config.ACCESS_CODE_SECRET ? 'per-account access codes' : config.DEV_AUTH ? 'dev headers' : 'supabase jwt',
+      chargers: config.OCPP_AUTH_KEY ? 'charger key required' : 'open',
     },
     'CleanGrid EV server ready',
   );

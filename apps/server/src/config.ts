@@ -53,6 +53,30 @@ export const configSchema = z.object({
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
+  /**
+   * Turns on access codes for the deployed demo. Every seeded account's code is derived from this
+   * secret (print them with scripts/access-codes.ts), every API call and console socket must carry
+   * one, and the code alone decides which account is signing in. Keep it private: whoever has it can
+   * work out every code.
+   */
+  ACCESS_CODE_SECRET: z.string().trim().min(24, 'ACCESS_CODE_SECRET must be at least 24 characters').optional(),
+  /**
+   * The key a charger presents to connect, as OCPP 1.6 security profile 1 describes: HTTP Basic on
+   * the WebSocket upgrade, the charger's identity as the user and this key as the password. Unset,
+   * any charger may connect, which is right on a laptop and wrong on the internet, so a server with
+   * ACCESS_CODE_SECRET refuses to start without it.
+   */
+  OCPP_AUTH_KEY: z.string().trim().min(16, 'OCPP_AUTH_KEY must be at least 16 characters').optional(),
+  /**
+   * How many proxies stand in front of the server, so the client address is read from the entry the
+   * nearest proxy appended to X-Forwarded-For. On a host like Render every request arrives from the
+   * proxy, and without this one visitor guessing codes would lock out all of them. A count, not a
+   * switch: trusting the whole header would let a guesser write a fresh address on every attempt.
+   * 0 by default, because a server with no proxy must not believe the header at all.
+   */
+  TRUST_PROXY: z.coerce.number().int('TRUST_PROXY is the number of proxies in front, such as 1').min(0).max(5).default(0),
+  /** Browser origins allowed to call the API, comma separated. Unset allows any origin. */
+  CORS_ORIGINS: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
@@ -67,8 +91,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.REPO === 'supabase' && !(config.SUPABASE_URL && config.SUPABASE_SERVICE_KEY)) {
     throw new Error('REPO=supabase needs SUPABASE_URL and SUPABASE_SERVICE_KEY');
   }
-  if (!config.DEV_AUTH && !config.SUPABASE_JWT_SECRET) {
-    throw new Error('DEV_AUTH=0 needs SUPABASE_JWT_SECRET to verify tokens');
+  if (!config.DEV_AUTH && !config.ACCESS_CODE_SECRET && !config.SUPABASE_JWT_SECRET) {
+    throw new Error('DEV_AUTH=0 needs ACCESS_CODE_SECRET (per-account demo codes) or SUPABASE_JWT_SECRET to let anyone in');
+  }
+  if (config.ACCESS_CODE_SECRET && !config.OCPP_AUTH_KEY) {
+    throw new Error('ACCESS_CODE_SECRET needs OCPP_AUTH_KEY too, or anyone could connect to the public server as one of its chargers');
   }
   return config;
 }

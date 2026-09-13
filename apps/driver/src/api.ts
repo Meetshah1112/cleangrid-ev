@@ -9,9 +9,8 @@ import {
 } from './demo';
 
 /**
- * API client. Until Supabase auth is wired in, the driver is identified by the dev headers the
- * server accepts; `EXPO_PUBLIC_DRIVER_ID` picks which seeded driver the app signs in as.
- * A phone needs the machine's LAN address here, not localhost.
+ * API client. Every call carries the driver's own access code, and the server acts as the driver
+ * that code belongs to. A phone needs a reachable address here, not localhost.
  */
 
 /**
@@ -26,9 +25,17 @@ const CANDIDATES: string[] = [
   process.env.EXPO_PUBLIC_API_URL,
   'http://127.0.0.1:8095',
   'http://10.0.2.2:8095', // the host machine, as seen from an Android emulator
-].filter((value): value is string => typeof value === 'string' && value.length > 0);
+]
+  .filter((value): value is string => typeof value === 'string' && value.length > 0)
+  .map((value) => value.replace(/\/+$/, ''));
 
 const PROBE_TIMEOUT_MS = 2_500;
+/**
+ * A hosted server on a free plan sleeps when nobody uses it and takes up to a minute to answer its
+ * first request. Giving it the local probe's few seconds would drop every first visit to demo data.
+ * A phone with no connection at all still fails at once, because the request errors rather than waits.
+ */
+const HOSTED_PROBE_TIMEOUT_MS = 75_000;
 
 let resolvedBase: string | null = null;
 let probe: Promise<string> | null = null;
@@ -41,7 +48,8 @@ export const getApiBase = (): string => resolvedBase ?? (CANDIDATES[0] as string
 
 async function reachable(candidate: string): Promise<boolean> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const timeoutMs = candidate.startsWith('https://') ? HOSTED_PROBE_TIMEOUT_MS : PROBE_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${candidate}/health`, { signal: controller.signal });
     return response.ok;
@@ -200,6 +208,12 @@ export class ApiError extends Error {
 }
 
 let driverId = process.env.EXPO_PUBLIC_DRIVER_ID ?? 'drv-harsh';
+let accessCode = '';
+
+/** Set at sign-in: the shared code every request must carry. */
+export const setAccessCode = (code: string): void => {
+  accessCode = code;
+};
 
 export const setDriverId = (id: string): void => {
   driverId = id;
@@ -208,6 +222,7 @@ export const getDriverId = (): string => driverId;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'x-dev-role': 'driver', 'x-dev-user': driverId };
+  if (accessCode) headers['x-access-code'] = accessCode;
   if (init?.body !== undefined) headers['content-type'] = 'application/json';
   const response = await fetch(`${await resolveBase()}${path}`, { ...init, headers });
   const body = (await response.json().catch(() => ({}))) as {
@@ -267,6 +282,29 @@ function demoCurrentSession(): CurrentSession | null {
   const current = demoCurrent(demoSite(), Date.now());
   if (demoState.mode === null) return current;
   return { ...current, session: { ...current.session, mode: demoState.mode } };
+}
+
+/** Who an access code signs in as, as the server reports it. */
+export interface Account {
+  id: string;
+  displayName: string;
+  role: 'driver' | 'operator' | 'grid_operator';
+  siteId: string | null;
+}
+
+/**
+ * Who a code belongs to; a code that belongs to nobody is refused. Never answered from the built-in
+ * snapshot, because signing in to an invented account would be a lie.
+ */
+export async function accountFor(code: string): Promise<Account> {
+  const base = await resolveBase();
+  if (offline) throw new ApiError('offline', 'No CleanGrid server is reachable from this phone.');
+  const response = await fetch(`${base}/me`, { headers: { 'x-access-code': code } });
+  const body = (await response.json().catch(() => ({}))) as { ok?: boolean; data?: Account; error?: { code?: string; message?: string } };
+  if (!response.ok || body.ok !== true || !body.data) {
+    throw new ApiError(body.error?.code ?? 'request_failed', body.error?.message ?? `HTTP ${response.status}`);
+  }
+  return body.data;
 }
 
 export const api = {

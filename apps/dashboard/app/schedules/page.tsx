@@ -19,12 +19,13 @@ import type { Plan, Site } from '../../lib/types';
  * one plan, and proof that the plan is what reached the chargers.
  */
 export default function SchedulesPage() {
-  return <Console page="schedules">{({ site, live }) => <SchedulesBody site={site} live={live} />}</Console>;
+  return <Console page="schedules">{({ site, live, role }) => <SchedulesBody site={site} live={live} canControl={role === 'operator'} />}</Console>;
 }
 
 const HOUR = 3_600_000;
 
-function SchedulesBody({ site, live }: { readonly site: Site | null; readonly live: LiveSite }) {
+/** `canControl`: the site's operator may re-plan and change a car's plan; the grid operator only watches. */
+function SchedulesBody({ site, live, canControl }: { readonly site: Site | null; readonly live: LiveSite; readonly canControl: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ startMs: number; endMs: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -120,11 +121,13 @@ function SchedulesBody({ site, live }: { readonly site: Site | null; readonly li
                     Let every parked hour do more.
                   </h1>
                   <p className="lede is-wide">CleanGrid moves flexible energy into cleaner, cheaper hours while preserving every committed departure.</p>
-                  <div className="actions">
-                    <button type="button" className="btn is-primary" onClick={replan} disabled={busy || !site}>
-                      {busy ? 'Re-planning' : 'Re-plan now'}
-                    </button>
-                  </div>
+                  {canControl ? (
+                    <div className="actions">
+                      <button type="button" className="btn is-primary" onClick={replan} disabled={busy || !site}>
+                        {busy ? 'Re-planning' : 'Re-plan now'}
+                      </button>
+                    </div>
+                  ) : null}
                   {outcome ? (
                     <p className="hero-outcome" role="status">
                       {outcome}
@@ -229,6 +232,7 @@ function SchedulesBody({ site, live }: { readonly site: Site | null; readonly li
               siteId={site.id}
               timezone={tz}
               currency={currency}
+              canControl={canControl}
               onChanged={() => void live.refresh()}
               onClose={() => setSelectedId(null)}
             />

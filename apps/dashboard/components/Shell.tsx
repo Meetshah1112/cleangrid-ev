@@ -31,6 +31,9 @@ interface ShellProps {
   readonly nowMs: number;
   readonly timeScale: number;
   readonly connected: boolean;
+  /** Who the console is signed in as, from the access code. */
+  readonly accountName: string;
+  readonly onSwitchAccount: () => void;
   readonly children: ReactNode;
 }
 
@@ -45,7 +48,7 @@ function Mark() {
   );
 }
 
-export function Shell({ page, sites, site, onSelectSite, nowMs, timeScale, connected, children }: ShellProps) {
+export function Shell({ page, sites, site, onSelectSite, nowMs, timeScale, connected, accountName, onSwitchAccount, children }: ShellProps) {
   const [open, setOpen] = useState(false);
   const [initials, setInitials] = useState('');
   const [who, setWho] = useState('');
@@ -142,9 +145,15 @@ export function Shell({ page, sites, site, onSelectSite, nowMs, timeScale, conne
               ) : null}
             </div>
 
-            <span className="avatar" title={who || undefined} aria-label={who ? `Signed in as ${who}` : 'Signing in'}>
+            <button
+              type="button"
+              className="avatar"
+              title={`Signed in as ${who || accountName}. Sign out`}
+              aria-label={`Signed in as ${who || accountName}. Sign out`}
+              onClick={onSwitchAccount}
+            >
               {initials || '..'}
-            </span>
+            </button>
           </div>
         </div>
       </header>

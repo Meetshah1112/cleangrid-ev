@@ -10,15 +10,23 @@ import { Wave } from '../../components/scene/Wave';
 import { api, gridApi } from '../../lib/api';
 import { STAGE_LABEL, drawnWhenAsked, measuredResult, previewRequest, stageOf, windowEffect, type FlexStage } from '../../lib/flexRead';
 import { clockTime, kw } from '../../lib/format';
+import type { ConsoleRole } from '../../lib/access';
 import type { LiveSite } from '../../lib/useLiveSite';
 import type { FlexEvent, GridSite, Site } from '../../lib/types';
 
 /**
  * Grid Flex. A network operator asks a site to draw less for a while; the site answers by moving
  * charging that can move, and never by cutting off a car that would then miss its departure.
+ *
+ * Two people use this page. Signed in as the grid operator, it sends requests; signed in as a site's
+ * operator, it answers them. Each sees the other's side without the other's buttons.
  */
 export default function GridPage() {
-  return <Console page="grid">{({ site, live, selectSite }) => <GridBody site={site} live={live} onSelectSite={selectSite} />}</Console>;
+  return (
+    <Console page="grid">
+      {({ site, live, selectSite, role }) => <GridBody site={site} live={live} onSelectSite={selectSite} role={role} />}
+    </Console>
+  );
 }
 
 const HOUR = 3_600_000;
@@ -26,7 +34,19 @@ const REDUCTIONS = [20, 40, 60];
 const DURATIONS = [1, 2, 3];
 const OPEN: readonly FlexStage[] = ['requested', 'accepted', 'active'];
 
-function GridBody({ site, live, onSelectSite }: { readonly site: Site | null; readonly live: LiveSite; readonly onSelectSite: (siteId: string) => void }) {
+function GridBody({
+  site,
+  live,
+  onSelectSite,
+  role,
+}: {
+  readonly site: Site | null;
+  readonly live: LiveSite;
+  readonly onSelectSite: (siteId: string) => void;
+  readonly role: ConsoleRole;
+}) {
+  const canAsk = role === 'grid_operator';
+  const canRespond = role === 'operator';
   const [network, setNetwork] = useState<GridSite[]>([]);
   const [reduction, setReduction] = useState(40);
   const [hours, setHours] = useState(1);
@@ -168,7 +188,15 @@ function GridBody({ site, live, onSelectSite }: { readonly site: Site | null; re
                   className={`hero-promise flex-state is-${stage ?? 'standby'} tone-${washTone(geometry, 'right')}`}
                   style={narrow ? { top: layout.top - 170, bottom: 'auto' } : undefined}
                 >
-                  <FlexState event={current} stage={stage} releasedKw={releasedKw} atRisk={atRisk} busy={busy} timezone={tz} onRespond={respond} />
+                  <FlexState
+                    event={current}
+                    stage={stage}
+                    releasedKw={releasedKw}
+                    atRisk={atRisk}
+                    busy={busy}
+                    timezone={tz}
+                    onRespond={canRespond ? respond : null}
+                  />
                 </div>
 
                 <ResponsePathOverlay layout={layout} geometry={geometry} event={current} releasedKw={releasedKw} connectionKw={connectionKw} timezone={tz} />
@@ -274,16 +302,24 @@ function GridBody({ site, live, onSelectSite }: { readonly site: Site | null; re
             </dl>
 
             <p className="ask-action">
-              <button type="button" className="btn is-primary" onClick={request} disabled={busy || !siteId || nowMs <= 0 || current !== null}>
-                {actionLabel}
-              </button>
-              {current && stage !== 'requested' ? (
+              {canAsk ? (
+                <button type="button" className="btn is-primary" onClick={request} disabled={busy || !siteId || nowMs <= 0 || current !== null}>
+                  {actionLabel}
+                </button>
+              ) : null}
+              {canRespond && current && stage !== 'requested' ? (
                 <button type="button" className="btn" onClick={() => respond(current, false)} disabled={busy}>
                   Withdraw from this request
                 </button>
               ) : null}
             </p>
-            {current && !sent ? <p className="caption">One request is already open for this site. Withdraw it before asking again.</p> : null}
+            {!canAsk ? (
+              <p className="caption">
+                Requests come from the grid operator. Sign in with Regional Grid Control&apos;s code to send one; here you see what it would ask of this
+                site, and answer it when it arrives.
+              </p>
+            ) : null}
+            {canAsk && current && !sent ? <p className="caption">One request is already open for this site. It has to end or be withdrawn by the site before another.</p> : null}
             {sentStage === 'declined' || sentStage === 'cancelled' ? (
               <p className="notice is-calm">
                 Your last request was {sent && withdrawn.includes(sent.id) ? 'withdrawn' : STAGE_LABEL[sentStage]}. The site is back on its own plan.
@@ -461,7 +497,8 @@ function FlexState({
   readonly atRisk: number;
   readonly busy: boolean;
   readonly timezone: string;
-  readonly onRespond: (event: FlexEvent, accept: boolean) => void;
+  /** Null when the signed-in account does not run the site, and so cannot answer for it. */
+  readonly onRespond: ((event: FlexEvent, accept: boolean) => void) | null;
 }) {
   if (!event || !stage) {
     return (
@@ -481,14 +518,16 @@ function FlexState({
           Request received <span>{span}</span>
         </p>
         <p className="hero-promise-note">Hold below {kw(event.capKw, 0)} kW. Nothing changes until the site accepts.</p>
-        <p className="flex-actions">
-          <button type="button" className="btn is-primary is-small" onClick={() => onRespond(event, true)} disabled={busy}>
-            Accept
-          </button>
-          <button type="button" className="btn is-glass is-small" onClick={() => onRespond(event, false)} disabled={busy}>
-            Decline
-          </button>
-        </p>
+        {onRespond ? (
+          <p className="flex-actions">
+            <button type="button" className="btn is-primary is-small" onClick={() => onRespond(event, true)} disabled={busy}>
+              Accept
+            </button>
+            <button type="button" className="btn is-glass is-small" onClick={() => onRespond(event, false)} disabled={busy}>
+              Decline
+            </button>
+          </p>
+        ) : null}
       </>
     );
   }

@@ -52,6 +52,7 @@ async function main(): Promise<void> {
         ...(options.timeScale === undefined ? {} : { timeScale: Number(options.timeScale) }),
         meterIntervalMs: Number(options.meterInterval) * 60_000,
         ...(options.loop === true ? { loop: true } : {}),
+        ...(process.env.OCPP_AUTH_KEY ? { authKey: process.env.OCPP_AUTH_KEY } : {}),
         ...(paths.length > 1 ? { label: scenario.site.name } : {}),
       });
     }),

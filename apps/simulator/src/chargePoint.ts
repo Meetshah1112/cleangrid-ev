@@ -33,6 +33,8 @@ export interface ChargePointOptions {
   readonly model?: string;
   readonly log: (message: string, detail?: Record<string, unknown>) => void;
   readonly meterIntervalMs?: number;
+  /** Sent as HTTP Basic credentials on connect (OCPP 1.6 security profile 1), when the server asks for one. */
+  readonly authKey?: string;
   /**
    * What to do when the central system asks for a remote start, which is what happens when a
    * driver confirms in the app. Returning a car means the cable is treated as already plugged in.
@@ -92,7 +94,9 @@ export class SimulatedChargePoint {
 
   async connect(): Promise<void> {
     const url = `${this.options.url.replace(/\/$/, '')}/${this.options.identity}`;
-    const socket = new WebSocket(url, [OCPP_SUBPROTOCOL]);
+    const { identity, authKey } = this.options;
+    const headers = authKey ? { authorization: `Basic ${Buffer.from(`${identity}:${authKey}`).toString('base64')}` } : undefined;
+    const socket = new WebSocket(url, [OCPP_SUBPROTOCOL], headers ? { headers } : {});
     this.socket = socket;
     const rpc = new OcppRpc(
       (data) => socket.send(data),

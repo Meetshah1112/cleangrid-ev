@@ -17,6 +17,7 @@ export function PlanDetail({
   siteId,
   timezone,
   currency,
+  canControl,
   onChanged,
   onClose,
 }: {
@@ -26,6 +27,8 @@ export function PlanDetail({
   readonly siteId: string;
   readonly timezone: string;
   readonly currency: string;
+  /** Whether the signed-in account runs this site, and so may change the car's plan. */
+  readonly canControl: boolean;
   readonly onChanged: () => void;
   readonly onClose: () => void;
 }) {
@@ -74,7 +77,7 @@ export function PlanDetail({
         ) : null}
       </dl>
 
-      {session.status === 'active' || session.status === 'pending' ? (
+      {canControl && (session.status === 'active' || session.status === 'pending') ? (
         <OverrideControls session={session} siteId={siteId} timezone={timezone} currency={currency} onChanged={onChanged} />
       ) : null}
     </section>

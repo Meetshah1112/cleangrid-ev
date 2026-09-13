@@ -1,0 +1,58 @@
+# Render Blueprint for the CleanGrid EV server and its simulated chargers.
+# New > Blueprint in the Render dashboard, pick this repository, then fill in the values marked
+# "sync: false" when asked. docs/DEPLOY.md walks through the whole deployment.
+
+services:
+  - type: web
+    name: cleangrid-ev-api
+    runtime: node
+    plan: free
+    # Nearest Render region to the Gujarat sites and the people looking at them.
+    region: singapore
+    # Only the server, the simulator and the packages they use; the console and the app are built elsewhere.
+    buildCommand: npm ci --include=dev --workspace apps/server --workspace apps/simulator --include-workspace-root
+    startCommand: node scripts/start.mjs
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOST
+        value: 0.0.0.0
+
+      # Who may use it: a code per account, all derived from this secret, and a separate key for chargers.
+      # Set the same secret in your local .env to print the codes (scripts/access-codes.ts).
+      - key: DEV_AUTH
+        value: "0"
+      - key: ACCESS_CODE_SECRET
+        sync: false
+      - key: OCPP_AUTH_KEY
+        generateValue: true
+      # Render's proxy sits in front, so the visitor's address is the one it appends.
+      - key: TRUST_PROXY
+        value: "1"
+      # The console's address once it is on Vercel, e.g. https://cleangrid-ev.vercel.app. Empty allows any origin.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Every write streams to Postgres and is read back on the next start.
+      - key: REPO
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # Real time. A sped-up clock would date sessions in the future, and restart back in the past.
+      - key: SIM_START
+        value: real
+      - key: SIM_TIME_SCALE
+        value: "1"
+      # The simulator replays each scenario's day on today's date, starting from the current hour.
+      - key: SIM_REBASE
+        value: today
+
+      - key: SCHEDULER
+        value: lp
+      - key: FORECAST
+        value: live

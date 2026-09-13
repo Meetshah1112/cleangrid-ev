@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { getApiBase, type ChargingMode, type SiteSummary, type Vehicle } from '../api';
 import { clockTime, getTimezone } from '../format';
 import { MODE_COPY, theme, type } from '../theme';
-import { ChoiceRow, PageHead, Screen, Section } from '../components/ui';
+import { Button, ChoiceRow, PageHead, Screen, Section } from '../components/ui';
 
 const MODES: ChargingMode[] = ['greenest', 'cheapest', 'balanced', 'fastest'];
 
@@ -21,6 +21,8 @@ export function ProfileScreen({
   hasLiveSession,
   nowMs,
   clockScale,
+  demoAccess,
+  onSwitchAccount,
 }: {
   driverName: string;
   sites: SiteSummary[];
@@ -32,6 +34,9 @@ export function ProfileScreen({
   hasLiveSession: boolean;
   nowMs: number;
   clockScale: number;
+  /** Signed in with the access code, rather than looking around the built-in snapshot. */
+  demoAccess: boolean;
+  onSwitchAccount: () => void;
 }) {
   return (
     <Screen>
@@ -100,6 +105,15 @@ export function ProfileScreen({
           <Text style={type.caption}>Demo clock</Text>
           <Text style={type.strong}>{clockScale === 1 ? 'real time' : `${clockScale}x accelerated`}</Text>
         </View>
+      </Section>
+
+      <Section label="Demo account">
+        <Text style={[type.caption, { marginBottom: theme.space(3) }]}>
+          {demoAccess
+            ? `Signed in as ${driverName} with their access code. Sign out to enter another driver's code.`
+            : 'You are looking around the built-in demo data. Sign in with an access code to use the live demo.'}
+        </Text>
+        <Button title={demoAccess ? 'Sign out' : 'Sign in'} tone="quiet" onPress={onSwitchAccount} />
       </Section>
     </Screen>
   );

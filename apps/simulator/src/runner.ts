@@ -8,7 +8,7 @@ import {
   type Scenario,
 } from './depsRunner';
 import { SimulatedChargePoint } from './chargePoint';
-import { declareIntent } from './driver';
+import { actAs, declareIntent } from './driver';
 
 /** Replays a scenario against a running server: connects the chargers, then drives the day. */
 
@@ -33,6 +33,17 @@ function replayAfter(arrivals: readonly ResolvedArrival[], nowMs: number): Resol
   }));
 }
 
+/**
+ * The arrivals whose stay is already over at a given moment.
+ *
+ * A server on the real clock can start part way through the day, as a hosted one does each time
+ * it wakes. Replaying those cars would open and close a session for each of them in the same
+ * second, and fill the record with charging that never happened.
+ */
+export function departedBy(arrivals: readonly ResolvedArrival[], nowMs: number): string[] {
+  return arrivals.filter((arrival) => arrival.departMs <= nowMs).map((arrival) => arrival.id);
+}
+
 export interface RunnerOptions {
   readonly scenario: Scenario;
   readonly wsUrl: string;
@@ -42,6 +53,8 @@ export interface RunnerOptions {
   readonly onLog?: (line: string) => void;
   /** Shown in log lines when more than one site is being simulated. */
   readonly label?: string;
+  /** The key a server with OCPP_AUTH_KEY expects each charger to present. */
+  readonly authKey?: string;
   /**
    * Replay the day instead of stopping after the last car leaves. A demo rig that disconnects its
    * chargers looks identical to a broken one: every bay reads offline and no session can start.
@@ -55,7 +68,8 @@ interface ClockSync {
 }
 
 async function fetchClock(apiUrl: string): Promise<ClockSync> {
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/clock`);
+  // Any seeded account can read the clock; the network operator is one that every deployment has.
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/clock`, { headers: actAs('ops-network', 'operator') });
   if (!response.ok) throw new Error(`clock sync failed: HTTP ${response.status}`);
   const body = (await response.json()) as { data?: ClockSync };
   if (!body.data) throw new Error('clock sync returned no data');
@@ -104,6 +118,7 @@ export class SimulatorRunner {
         ...(charger.vendor === undefined ? {} : { vendor: charger.vendor }),
         ...(charger.model === undefined ? {} : { model: charger.model }),
         ...(this.options.meterIntervalMs === undefined ? {} : { meterIntervalMs: this.options.meterIntervalMs }),
+        ...(this.options.authKey ? { authKey: this.options.authKey } : {}),
         log: (message) => this.log(`${charger.ocppIdentity} ${message}`),
         onRemoteStart: ({ idTag, connectorId }) => this.carFor(idTag, connectorId, charger.id),
       });
@@ -131,6 +146,13 @@ export class SimulatorRunner {
     let lastDepartMs = arrivals.reduce((latest, arrival) => Math.max(latest, arrival.departMs), 0);
     let ticks = 0;
     let day = 1;
+
+    const gone = this.clock ? departedBy(arrivals, this.clock.now()) : [];
+    for (const id of gone) {
+      this.pluggedIn.add(id);
+      this.unplugged.add(id);
+    }
+    if (gone.length > 0) this.log(`starting part way through the day: ${gone.length} of ${arrivals.length} cars have already left`);
 
     while (this.running) {
       const clock = this.clock;

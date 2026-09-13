@@ -13,33 +13,42 @@ import type {
   SessionReport,
   Site,
 } from './types';
+import { ACCESS_ERRORS, clearAccess, currentAccess, type Account } from './access';
 
 /** One place that knows where the server is and how this console identifies itself. */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080';
+// A trailing slash, as a host's dashboard tends to copy it, would double every path after it.
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080').replace(/\/+$/, '');
 
 /**
- * The console watches a network of sites, so it signs in as the network operator rather than as any
- * one site's operator. A single-site operator is refused at every other site, which is correct for
- * them and wrong for this screen.
+ * Every call carries the access code the console was signed in with, and the server acts as the
+ * account that code belongs to. The development headers ride along for a laptop server running
+ * without codes, which ignores the code; a server with codes ignores the headers.
  */
-const operator: HeadersInit = {
-  'x-dev-role': 'operator',
-  'x-dev-user': process.env.NEXT_PUBLIC_OPERATOR_ID ?? 'ops-network',
+const withCode = (devRole: string, devUser: string): Record<string, string> => {
+  const access = currentAccess();
+  return {
+    'x-dev-role': devRole,
+    'x-dev-user': devUser,
+    ...(access ? { 'x-access-code': access.code } : {}),
+  };
 };
 
-/** The grid operator is a different person with a different view; the API treats them as one. */
-const gridOperator: HeadersInit = {
-  'x-dev-role': 'grid_operator',
-  'x-dev-user': process.env.NEXT_PUBLIC_GRID_OPERATOR_ID ?? 'grid-ops',
-};
+const operator = (): Record<string, string> => withCode('operator', process.env.NEXT_PUBLIC_OPERATOR_ID ?? 'ops-network');
 
-async function request<T>(path: string, init?: RequestInit, as: HeadersInit = operator): Promise<T> {
+/** The grid operator is a different person with a different view; on a laptop server it is a different header. */
+const gridOperator = (): Record<string, string> => withCode('grid_operator', process.env.NEXT_PUBLIC_GRID_OPERATOR_ID ?? 'grid-ops');
+
+async function request<T>(path: string, init?: RequestInit, as: () => Record<string, string> = operator): Promise<T> {
   // Only claim a JSON body when there is one; an empty body with a JSON content type is an error.
-  const headers = init?.body === undefined ? as : { ...as, 'content-type': 'application/json' };
+  const identity = as();
+  const headers = init?.body === undefined ? identity : { ...identity, 'content-type': 'application/json' };
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
-  const body = (await response.json().catch(() => ({}))) as { ok?: boolean; data?: T; error?: { message?: string } };
+  const body = (await response.json().catch(() => ({}))) as { ok?: boolean; data?: T; error?: { code?: string; message?: string } };
   if (!response.ok || body.ok !== true) {
+    // The code was changed or the account no longer exists: send the visitor back to the gate.
+    const code = body.error?.code;
+    if (code && ACCESS_ERRORS.has(code) && currentAccess()) clearAccess();
     throw new Error(body.error?.message ?? `${path} failed with HTTP ${response.status}`);
   }
   return body.data as T;
@@ -122,7 +131,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ accept }),
     }),
-  socketUrl: (siteId: string) => `${API_BASE.replace(/^http/, 'ws')}/ws/sites/${siteId}`,
+  // A browser cannot put headers on a WebSocket, so the access code travels in the URL.
+  socketUrl: (siteId: string) => {
+    const code = currentAccess()?.code;
+    return `${API_BASE.replace(/^http/, 'ws')}/ws/sites/${siteId}${code ? `?code=${encodeURIComponent(code)}` : ''}`;
+  },
+  /** Who an access code signs in as. A code that belongs to nobody is refused. */
+  accountFor: async (code: string): Promise<Account> => {
+    const headers = { ...operator(), 'x-access-code': code };
+    const response = await fetch(`${API_BASE}/me`, { headers, cache: 'no-store' }).catch(() => {
+      throw new Error('The CleanGrid server could not be reached. Check the connection and try again.');
+    });
+    const body = (await response.json().catch(() => ({}))) as { ok?: boolean; data?: Account; error?: { message?: string } };
+    if (!response.ok || body.ok !== true || !body.data) throw new Error(body.error?.message ?? `the server answered HTTP ${response.status}`);
+    return body.data;
+  },
 };
 
 export const gridApi = {

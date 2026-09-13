@@ -38,6 +38,10 @@ export async function registerSystemRoutes(app: FastifyInstance, ctx: ApiContext
 
   app.post('/admin/clock', async (request) => {
     requireRole(request.principal, 'operator');
+    // Every visitor to a public demo shares this clock, and a jump would date the stored record wrongly.
+    if (ctx.config.ACCESS_CODE_SECRET) {
+      throw new AppError('clock_locked', 'the clock of a shared demo cannot be changed from the API', 403);
+    }
     const body = clockControlSchema.parse(request.body);
     if (!(ctx.clock instanceof SimClock)) {
       throw new AppError('clock_not_simulated', 'this server runs on real time', 409);

@@ -1,4 +1,4 @@
-import type { ChargingMode } from './deps';
+import { accessCodeFor, type ChargingMode } from './deps';
 
 /**
  * The driver-app half of an arrival. Before the cable goes in, the app tells the server what the
@@ -34,10 +34,22 @@ interface ApiReply {
   };
 }
 
+/**
+ * How the simulator identifies itself as an account. A deployed server takes only access codes, one
+ * per account; the simulator runs beside it and acts for every seeded driver, so it is given the
+ * secret the codes come from and works out each one. Without the secret, as on a laptop, the
+ * development headers do the same job.
+ */
+export function actAs(accountId: string, role: 'driver' | 'operator'): Record<string, string> {
+  const secret = process.env.ACCESS_CODE_SECRET?.trim();
+  if (secret) return { 'x-access-code': accessCodeFor(secret, accountId) };
+  return { 'x-dev-role': role, 'x-dev-user': accountId };
+}
+
 async function post(apiUrl: string, driverId: string, body: unknown): Promise<ApiReply> {
   const response = await fetch(`${apiUrl.replace(/\/$/, '')}/sessions`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-dev-role': 'driver', 'x-dev-user': driverId },
+    headers: { 'content-type': 'application/json', ...actAs(driverId, 'driver') },
     body: JSON.stringify(body),
   });
   const parsed = (await response.json().catch(() => ({}))) as ApiReply['body'];

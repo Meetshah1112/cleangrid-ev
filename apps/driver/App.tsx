@@ -11,10 +11,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
   api,
-  getDriverId,
+  ApiError,
   getSiteId,
   isOffline,
   serverNow,
+  setAccessCode,
+  setDriverId,
   setSiteId,
   syncClock,
   type ChargingMode,
@@ -25,6 +27,7 @@ import {
   type SiteSummary,
   type Vehicle,
 } from './src/api';
+import { ACCESS_ERRORS, clearAccess, loadAccess, saveAccess, type DriverAccess } from './src/access';
 import { setLocale } from './src/format';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -32,6 +35,7 @@ import { LiveScreen } from './src/screens/LiveScreen';
 import { PlanScreen } from './src/screens/PlanScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
+import { SignInScreen } from './src/screens/SignInScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { Notice, TabBar, type Tab } from './src/components/ui';
 import { fonts, theme } from './src/theme';
@@ -58,10 +62,66 @@ const TICK_MS = 1_000;
 
 type HistoryRow = Session & { report: Report | null };
 
+/** Points every request at the chosen account, before any screen for it asks for data. */
+function applyAccess(access: DriverAccess): void {
+  setDriverId(access.driverId);
+  setAccessCode(access.code);
+  if (access.siteId) setSiteId(access.siteId);
+}
+
+/**
+ * The fonts and the remembered account come first. Nothing asks the server for anything until the
+ * phone knows who it is, so a missing or retired code lands on sign-in rather than on a screen of errors.
+ */
 export default function App() {
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  const [access, setAccess] = useState<DriverAccess | null | undefined>(undefined);
+
+  useEffect(() => {
+    void loadAccess().then((stored) => {
+      if (stored) applyAccess(stored);
+      setAccess(stored);
+    });
+  }, []);
+
+  const signIn = (next: DriverAccess): void => {
+    applyAccess(next);
+    void saveAccess(next);
+    setAccess(next);
+  };
+
+  const signOut = useCallback((): void => {
+    setAccessCode('');
+    void clearAccess();
+    setAccess(null);
+  }, []);
+
+  // Hold the first frame on the splash's paper until the faces are in, so nothing is laid out in a fallback
+  // font and then jumps. A font that fails to load is no reason to show nothing: carry on without it.
+  if ((!fontsLoaded && !fontError) || access === undefined) {
+    return (
+      <View style={[styles.app, styles.splash]}>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.app}>
+      <StatusBar style="dark" />
+      {access === null ? (
+        <SignInScreen onSignedIn={signIn} />
+      ) : (
+        // Keyed by driver, so switching account starts from that driver's own car and sessions.
+        <DriverApp key={access.driverId} access={access} onSignOut={signOut} />
+      )}
+    </SafeAreaView>
+  );
+}
+
+function DriverApp({ access, onSignOut }: { access: DriverAccess; onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('home');
-  const [driverName, setDriverName] = useState<string>(getDriverId());
+  const [driverName, setDriverName] = useState<string>(access.driverName);
   const [defaultMode, setDefaultMode] = useState<ChargingMode>('balanced');
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [siteId, setSite] = useState<string>(getSiteId());
@@ -84,6 +144,15 @@ export default function App() {
 
   const previousSessionId = useRef<string | null>(null);
 
+  // A code the server no longer accepts, or an account it no longer has, ends the sign-in.
+  const fail = useCallback(
+    (caught: Error): void => {
+      if (caught instanceof ApiError && ACCESS_ERRORS.has(caught.code)) onSignOut();
+      else setError(caught.message);
+    },
+    [onSignOut],
+  );
+
   const loadSession = useCallback(() => {
     void api
       .current()
@@ -102,9 +171,9 @@ export default function App() {
         setDemo(isOffline());
         setError(null);
       })
-      .catch((caught: Error) => setError(caught.message))
+      .catch(fail)
       .finally(() => setLoading(false));
-  }, []);
+  }, [fail]);
 
   const loadForecast = useCallback(() => {
     void api
@@ -147,12 +216,12 @@ export default function App() {
           }
         }
       })
-      .catch((caught: Error) => setError(caught.message));
+      .catch(fail);
     void api
       .vehicles()
       .then(setVehicles)
       .catch(() => undefined);
-  }, []);
+  }, [fail]);
 
   // Polling: the session and the forecast, plus a local tick so countdowns move between polls.
   useEffect(() => {
@@ -182,12 +251,12 @@ export default function App() {
    */
   const chooseDefaultMode = (mode: ChargingMode): void => {
     setDefaultMode(mode);
-    void api.updateMe({ defaultMode: mode }).catch((caught: Error) => setError(caught.message));
+    void api.updateMe({ defaultMode: mode }).catch(fail);
     if (current) {
       void api
         .updateSession(current.session.id, { mode })
         .then(loadSession)
-        .catch((caught: Error) => setError(caught.message));
+        .catch(fail);
     }
   };
 
@@ -219,6 +288,8 @@ export default function App() {
           hasLiveSession={current !== null}
           nowMs={nowMs}
           clockScale={clockScale}
+          demoAccess={!access.offline}
+          onSwitchAccount={onSignOut}
         />
       );
     }
@@ -278,7 +349,7 @@ export default function App() {
                 void api
                   .stopSession(current.session.id)
                   .then(loadSession)
-                  .catch((caught: Error) => setError(caught.message));
+                  .catch(fail);
               }
             : undefined
         }
@@ -286,19 +357,8 @@ export default function App() {
     );
   };
 
-  // Hold the first frame on the splash's paper until the faces are in, so nothing is laid out in a fallback
-  // font and then jumps. A font that fails to load is no reason to show nothing: carry on without it.
-  if (!fontsLoaded && !fontError) {
-    return (
-      <View style={[styles.app, styles.splash]}>
-        <StatusBar style="dark" />
-      </View>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.app}>
-      <StatusBar style="dark" />
+    <>
       <View style={styles.body}>
         {/* A jury must never mistake the built-in snapshot for a live measurement. */}
         {demo ? (
@@ -311,15 +371,13 @@ export default function App() {
         ) : null}
         {error && !demo ? (
           <View style={styles.errorWrap}>
-            <Notice tone="risk">
-              {error}. Check that the phone and the server are on the same network.
-            </Notice>
+            <Notice tone="risk">The CleanGrid server did not answer ({error}). Figures shown are the last ones received.</Notice>
           </View>
         ) : null}
         {body()}
       </View>
       <TabBar current={tab} onChange={setTab} />
-    </SafeAreaView>
+    </>
   );
 }
 

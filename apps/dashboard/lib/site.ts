@@ -30,7 +30,8 @@ function remembered(): string | null {
   }
 }
 
-export function useSiteSelection(): SiteSelection {
+/** A site id here keeps a single-site operator to their own site; the network operator sees them all. */
+export function useSiteSelection(onlySiteId: string | null = null): SiteSelection {
   const [sites, setSites] = useState<Site[]>([]);
   const [siteId, setSiteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,8 @@ export function useSiteSelection(): SiteSelection {
   useEffect(() => {
     void api
       .sites()
-      .then((list) => {
+      .then((all) => {
+        const list = onlySiteId ? all.filter((site) => site.id === onlySiteId) : all;
         setSites(list);
         setError(null);
         setSiteId((current) => {
@@ -48,7 +50,7 @@ export function useSiteSelection(): SiteSelection {
         });
       })
       .catch((caught: Error) => setError(caught.message));
-  }, []);
+  }, [onlySiteId]);
 
   const select = useCallback((next: string) => {
     setSiteId(next);

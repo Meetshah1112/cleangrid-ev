@@ -78,11 +78,11 @@ describe('cross-origin requests', () => {
       headers: {
         origin: 'http://localhost:3000',
         'access-control-request-method': 'PATCH',
-        'access-control-request-headers': 'content-type,x-dev-role,x-dev-user',
+        'access-control-request-headers': 'content-type,x-dev-role,x-dev-user,x-access-code',
       },
     });
     const allowed = String(preflight.headers['access-control-allow-headers'] ?? '').toLowerCase();
-    for (const header of ['content-type', 'x-dev-role', 'x-dev-user', 'authorization']) {
+    for (const header of ['content-type', 'x-dev-role', 'x-dev-user', 'x-access-code', 'authorization']) {
       expect(allowed, `${header} would be stripped`).toContain(header);
     }
     await server.close();
